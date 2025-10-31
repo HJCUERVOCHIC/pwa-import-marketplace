@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Plus, Package } from 'lucide-react'
 import { supabase } from '../services/supabaseClient'
+import ModalEditorProducto from '../components/ModalEditorProducto'
 
 function ProductosPage() {
   const { idLista } = useParams()
@@ -9,6 +10,7 @@ function ProductosPage() {
   const [lista, setLista] = useState(null)
   const [productos, setProductos] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showModal, setShowModal] = useState(false)
 
   useEffect(() => {
     cargarDatos()
@@ -41,6 +43,11 @@ function ProductosPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleProductoCreado = (nuevoProducto) => {
+    // Agregar el nuevo producto al inicio del array
+    setProductos(prev => [nuevoProducto, ...prev])
   }
 
   const estadoColors = {
@@ -90,7 +97,10 @@ function ProductosPage() {
               <p className="text-gray-600">{lista.descripcion}</p>
             )}
           </div>
-          <button className="btn-primary flex items-center gap-2">
+          <button 
+            className="btn-primary flex items-center gap-2"
+            onClick={() => setShowModal(true)}
+          >
             <Plus className="w-5 h-5" />
             Agregar Producto
           </button>
@@ -134,7 +144,10 @@ function ProductosPage() {
           <p className="text-gray-600 mb-4">
             Comienza agregando tu primer producto importado
           </p>
-          <button className="btn-primary inline-flex items-center gap-2">
+          <button 
+            className="btn-primary inline-flex items-center gap-2"
+            onClick={() => setShowModal(true)}
+          >
             <Plus className="w-5 h-5" />
             Agregar Primer Producto
           </button>
@@ -192,9 +205,16 @@ function ProductosPage() {
           ))}
         </div>
       )}
+
+      {/* Modal Editor de Producto */}
+      <ModalEditorProducto
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        lista={lista}
+        onProductoCreado={handleProductoCreado}
+      />
     </div>
   )
 }
 
 export default ProductosPage
-
