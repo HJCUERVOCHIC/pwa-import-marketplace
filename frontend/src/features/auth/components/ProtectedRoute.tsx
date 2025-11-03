@@ -114,3 +114,4 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   // Usuario autenticado y autorizado, renderizar children
   return <>{children}</>;
 };
+export default ProtectedRoute

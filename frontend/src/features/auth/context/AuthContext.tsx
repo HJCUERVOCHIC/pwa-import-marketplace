@@ -21,6 +21,9 @@ interface AuthProviderProps {
   children: React.ReactNode;
 }
 
+// ✅ NUEVO: Versión del storage para auto-limpieza en cambios importantes
+const STORAGE_VERSION = '1.0';
+
 /**
  * Provider de autenticación que gestiona el estado global de auth
  */
@@ -50,28 +53,74 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   /**
    * Inicializa la sesión al cargar la aplicación
+   * ✅ MEJORADO: Con manejo robusto de errores y auto-recuperación
    */
   useEffect(() => {
     let mounted = true;
 
     const initializeAuth = async () => {
       try {
+        // ✅ NUEVO: Verificar versión de localStorage
+        const currentVersion = localStorage.getItem('app-version');
+        
+        if (currentVersion !== STORAGE_VERSION) {
+          console.log('📦 Nueva versión detectada, limpiando localStorage...');
+          localStorage.clear();
+          localStorage.setItem('app-version', STORAGE_VERSION);
+        }
+
         // Obtener sesión actual
         const {
           data: { session },
+          error: sessionError,
         } = await supabase.auth.getSession();
 
-        if (session && mounted) {
-          // Obtener perfil del usuario
-          const profile = await authService.getProfile();
+        // ✅ MEJORADO: Manejo explícito de errores
+        if (sessionError) {
+          console.error('❌ Error al obtener sesión:', sessionError);
+          // Limpiar localStorage corrupto
+          localStorage.clear();
+          localStorage.setItem('app-version', STORAGE_VERSION);
+          
+          if (mounted) {
+            setState({
+              user: null,
+              session: null,
+              profile: null,
+              loading: false,
+              initialized: true,
+            });
+          }
+          return;
+        }
 
-          setState({
-            user: session.user,
-            session,
-            profile,
-            loading: false,
-            initialized: true,
-          });
+        if (session && mounted) {
+          try {
+            // Obtener perfil del usuario
+            const profile = await authService.getProfile();
+
+            setState({
+              user: session.user,
+              session,
+              profile,
+              loading: false,
+              initialized: true,
+            });
+          } catch (profileError) {
+            console.error('❌ Error al cargar perfil:', profileError);
+            // Si falla el perfil, limpiar sesión
+            await supabase.auth.signOut();
+            
+            if (mounted) {
+              setState({
+                user: null,
+                session: null,
+                profile: null,
+                loading: false,
+                initialized: true,
+              });
+            }
+          }
         } else if (mounted) {
           setState({
             user: null,
@@ -82,7 +131,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           });
         }
       } catch (error) {
-        console.error('Error initializing auth:', error);
+        console.error('❌ Error fatal en inicialización de auth:', error);
+        
+        // ✅ NUEVO: Auto-recuperación en caso de error fatal
+        try {
+          localStorage.clear();
+          localStorage.setItem('app-version', STORAGE_VERSION);
+          await supabase.auth.signOut();
+        } catch (cleanupError) {
+          console.error('Error en limpieza de emergencia:', cleanupError);
+        }
+        
         if (mounted) {
           setState({
             user: null,
@@ -91,6 +150,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             loading: false,
             initialized: true,
           });
+        }
+      } finally {
+        // ✅ CRÍTICO: Asegurar que siempre se marque como inicializado
+        if (mounted) {
+          setState((prev) => ({
+            ...prev,
+            loading: false,
+            initialized: true,
+          }));
         }
       }
     };
@@ -104,23 +172,51 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   /**
    * Suscribirse a cambios en la autenticación
+   * ✅ MEJORADO: Con manejo de errores mejorado
    */
   useEffect(() => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event);
+      console.log('🔄 Auth state changed:', event);
 
-      if (event === 'SIGNED_IN' && session) {
-        const profile = await authService.getProfile();
-        setState({
-          user: session.user,
-          session,
-          profile,
-          loading: false,
-          initialized: true,
-        });
-      } else if (event === 'SIGNED_OUT') {
+      try {
+        if (event === 'SIGNED_IN' && session) {
+          const profile = await authService.getProfile();
+          setState({
+            user: session.user,
+            session,
+            profile,
+            loading: false,
+            initialized: true,
+          });
+        } else if (event === 'SIGNED_OUT') {
+          setState({
+            user: null,
+            session: null,
+            profile: null,
+            loading: false,
+            initialized: true,
+          });
+        } else if (event === 'TOKEN_REFRESHED' && session) {
+          setState((prev) => ({
+            ...prev,
+            user: session.user,
+            session,
+          }));
+        } else if (event === 'USER_UPDATED' && session) {
+          // ✅ NUEVO: Manejar actualizaciones de usuario
+          const profile = await authService.getProfile();
+          setState((prev) => ({
+            ...prev,
+            user: session.user,
+            session,
+            profile,
+          }));
+        }
+      } catch (error) {
+        console.error('❌ Error en cambio de estado de auth:', error);
+        // En caso de error, mantener el estado seguro
         setState({
           user: null,
           session: null,
@@ -128,12 +224,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           loading: false,
           initialized: true,
         });
-      } else if (event === 'TOKEN_REFRESHED' && session) {
-        setState((prev) => ({
-          ...prev,
-          user: session.user,
-          session,
-        }));
       }
     });
 
@@ -144,6 +234,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   /**
    * Función de login
+   * ✅ MEJORADO: Con manejo de errores mejorado
    */
   const login = useCallback(async (credentials: LoginCredentials): Promise<LoginResult> => {
     setState((prev) => ({ ...prev, loading: true }));
@@ -159,6 +250,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       return result;
     } catch (error) {
+      console.error('❌ Error en login:', error);
       setState((prev) => ({ ...prev, loading: false }));
       throw error;
     }
@@ -166,6 +258,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   /**
    * Función de logout
+   * ✅ MEJORADO: Con limpieza más robusta
    */
   const logout = useCallback(async () => {
     setState((prev) => ({ ...prev, loading: true }));
@@ -174,7 +267,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await authService.logout();
       // El estado se actualizará automáticamente a través del listener
     } catch (error) {
-      console.error('Error during logout:', error);
+      console.error('❌ Error durante logout:', error);
+      
+      // ✅ MEJORADO: Forzar limpieza completa incluso si hay error
+      try {
+        await supabase.auth.signOut();
+        localStorage.removeItem('pwa-import-marketplace-auth');
+      } catch (cleanupError) {
+        console.error('Error en limpieza de logout:', cleanupError);
+      }
+      
       // Forzar limpieza del estado incluso si hay error
       setState({
         user: null,

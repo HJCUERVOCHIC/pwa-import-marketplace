@@ -1,60 +1,61 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider } from './features/auth/context/AuthContext'
-import { ProtectedRoute } from './features/auth/components/ProtectedRoute'
-import Layout from './components/Layout'
-
-// Páginas existentes
-import ListasPage from './pages/ListasPage'
-import ProductosPage from './pages/ProductosPage'
-
-// Páginas de autenticación
-import { LoginPage } from './pages/auth/LoginPage'
-import { DashboardPage } from './pages/admin/DashboardPage'
+import { AuthProvider } from '@/features/auth/context/AuthContext'
+import ProtectedRoute from '@/features/auth/components/ProtectedRoute'
+import LoginPage from '@/pages/auth/LoginPage'
+import DashboardPage from '@/pages/admin/DashboardPage'
+import Layout from '@/components/Layout'
+import ListasPage from '@/pages/ListasPage'
+import ProductosPage from '@/pages/ProductosPage'
 
 function App() {
   return (
     <AuthProvider>
       <Router>
         <Routes>
-          {/* RUTA DE PRUEBA */}
-          <Route path="/test" element={<div style={{padding: '20px', background: 'yellow'}}><h1>TEST FUNCIONANDO</h1></div>} />
-
-          {/* RUTAS PÚBLICAS */}
-          <Route 
-            path="/" 
-            element={
-              <Layout>
-                <ListasPage />
-              </Layout>
-            } 
-          />
+          {/* Ruta raíz redirige a dashboard */}
+          <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
           
-          <Route 
-            path="/listas/:idLista/productos" 
-            element={
-              <Layout>
-                <ProductosPage />
-              </Layout>
-            } 
-          />
-
-          {/* LOGIN */}
+          {/* Login - accesible sin auth, pero redirige si ya está autenticado */}
           <Route path="/admin/login" element={<LoginPage />} />
-
-          {/* ADMIN PROTEGIDO */}
+          
+          {/* Dashboard - ruta protegida */}
           <Route
             path="/admin/dashboard"
             element={
               <ProtectedRoute>
-                <DashboardPage />
+                <Layout>
+                  <DashboardPage />
+                </Layout>
               </ProtectedRoute>
             }
           />
-
-          <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
           
-          {/* 404 */}
-          <Route path="*" element={<div style={{padding: '20px'}}><h1>404 - Página no encontrada</h1></div>} />
+          {/* Listas - ruta protegida */}
+          <Route
+            path="/admin/listas"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <ListasPage />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          
+          {/* Productos de una lista - ruta protegida */}
+          <Route
+            path="/admin/listas/:id/productos"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <ProductosPage />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          
+          {/* Ruta 404 - redirige a dashboard */}
+          <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
         </Routes>
       </Router>
     </AuthProvider>

@@ -216,5 +216,4 @@ function ProductosPage() {
     </div>
   )
 }
-
 export default ProductosPage

@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { X, DollarSign, Percent } from 'lucide-react'
 import { supabase } from '../services/supabaseClient'
+import { useAuth } from '../features/auth/context/AuthContext' // ✅ CAMBIO 1: Import agregado
 
 function ModalCrearLista({ isOpen, onClose, onListaCreada }) {
+  const { user } = useAuth() // ✅ CAMBIO 2: Hook agregado
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     titulo: '',
@@ -66,6 +68,12 @@ function ModalCrearLista({ isOpen, onClose, onListaCreada }) {
       return
     }
 
+    // Validación de seguridad: verificar que haya usuario
+    if (!user?.id) {
+      alert('Error: No hay sesión activa. Por favor, vuelve a iniciar sesión.')
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -81,7 +89,8 @@ function ModalCrearLista({ isOpen, onClose, onListaCreada }) {
         tax_usd_lista: formData.tax_modo_lista === 'valor_fijo_usd' 
           ? parseFloat(formData.tax_usd_lista) 
           : null,
-        estado: 'borrador'
+        estado: 'borrador',
+        creado_por: user.id // ✅ CAMBIO 3: Campo de auditoría agregado
       }
 
       const { data, error } = await supabase
