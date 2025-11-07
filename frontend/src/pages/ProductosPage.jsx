@@ -5,7 +5,7 @@ import { supabase } from '../services/supabaseClient'
 import ModalEditorProducto from '../components/ModalEditorProducto'
 
 function ProductosPage() {
-  const { idLista } = useParams()
+  const { id } = useParams() // CORREGIDO: era 'idLista', ahora es 'id'
   const navigate = useNavigate()
   const [lista, setLista] = useState(null)
   const [productos, setProductos] = useState([])
@@ -14,7 +14,7 @@ function ProductosPage() {
 
   useEffect(() => {
     cargarDatos()
-  }, [idLista])
+  }, [id])
 
   async function cargarDatos() {
     try {
@@ -22,7 +22,7 @@ function ProductosPage() {
       const { data: listaData, error: listaError } = await supabase
         .from('listas_oferta')
         .select('*')
-        .eq('id', idLista)
+        .eq('id', id) // CORREGIDO: usa 'id' en lugar de 'idLista'
         .single()
 
       if (listaError) throw listaError
@@ -32,7 +32,7 @@ function ProductosPage() {
       const { data: productosData, error: productosError } = await supabase
         .from('productos')
         .select('*')
-        .eq('id_lista', idLista)
+        .eq('id_lista', id) // CORREGIDO: usa 'id' en lugar de 'idLista'
         .order('created_at', { ascending: false })
 
       if (productosError) throw productosError
@@ -69,7 +69,7 @@ function ProductosPage() {
     return (
       <div className="text-center py-12">
         <p className="text-gray-600">Lista no encontrada</p>
-        <button onClick={() => navigate('/')} className="btn-primary mt-4">
+        <button onClick={() => navigate('/admin/listas')} className="btn-primary mt-4">
           Volver
         </button>
       </div>
@@ -80,7 +80,7 @@ function ProductosPage() {
     <div>
       {/* Header */}
       <button
-        onClick={() => navigate('/')}
+        onClick={() => navigate('/admin/listas')} // CORREGIDO: era '/', ahora es '/admin/listas'
         className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
       >
         <ArrowLeft className="w-5 h-5" />

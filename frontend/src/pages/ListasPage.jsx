@@ -94,7 +94,7 @@ function ListasPage() {
             <div
               key={lista.id}
               className="card hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => navigate(`/listas/${lista.id}/productos`)}
+              onClick={() => navigate(`/admin/listas/${lista.id}/productos`)}
             >
               <div className="flex justify-between items-start mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">
