@@ -1,507 +1,588 @@
-# Contexto Completo del Proyecto - PWA Import Marketplace
+# 🎯 CONTEXTO DEL PROYECTO - PWA Import Marketplace (Chic Import USA)
 
-**Última actualización:** 2025-11-03  
-**Estado general:** Módulo 01 completado, pendiente Módulo 03 (Autenticación)
-
----
-
-## 🎯 Propósito del Proyecto
-
-Plataforma PWA para que administradores publiquen ofertas de productos importados desde USA, con cálculo automático de precios considerando TRM y TAX.
-
-**Flujo de negocio:**
-1. Admin crea una **Lista de Oferta** (define TRM y TAX únicos)
-2. Admin agrega **Productos** a la lista (calculadora automática de precios)
-3. Sistema calcula automáticamente: costo COP, precio sugerido, ganancia
-4. Admin ajusta precio final (si es necesario) y publica
-5. Los productos publicados quedan visibles en catálogo público
+**Para:** Nueva sesión de Claude  
+**Versión actual:** v0.5.0  
+**Última actualización:** Noviembre 20, 2025  
+**Estado:** ✅ Operativo y Funcional
 
 ---
 
-## 🏗️ Arquitectura Técnica
+## 📝 RESUMEN EJECUTIVO
 
-### Stack Tecnológico
+**Chic Import USA** es una PWA (Progressive Web App) para gestionar y publicar catálogos de productos importados desde Estados Unidos. El sistema tiene dos componentes principales:
+
+1. **Panel Administrativo** (requiere login) - Para gestionar listas y productos
+2. **Catálogo Público** (sin login) - Para que usuarios exploren productos
+
+### **Funcionalidades Core Implementadas:**
+- ✅ Sistema de autenticación con Supabase
+- ✅ CRUD de listas con configuración de TRM, TAX y márgenes
+- ✅ CRUD de productos con cálculos automáticos de precios
+- ✅ Flujo completo de publicación con validaciones
+- ✅ Sistema de estados (borrador → publicado → cerrado → archivado)
+- ✅ Catálogo público con 3 vistas (listas, productos, detalle)
+- ✅ Row Level Security (RLS) para acceso público/privado
+- ✅ Sistema de diseño "Chic Import USA" (Gold, Emerald, Bordeaux)
+
+---
+
+## 🏗️ ARQUITECTURA
+
+### **Stack Tecnológico:**
 ```
-Frontend:
-  - React 18 (biblioteca UI)
-  - Vite (bundler, dev server)
-  - Tailwind CSS 3.4.0 (estilos)
-  - React Router DOM (navegación)
-  - Lucide React (iconos)
-
-Backend:
-  - Supabase (BaaS completo)
-    ├── PostgreSQL (base de datos)
-    ├── Auth (autenticación JWT)
-    ├── Storage (imágenes)
-    └── Edge Functions (lógica serverless)
-
-Hosting:
-  - Frontend: Vercel
-  - Backend: Supabase Cloud
+Frontend:  React 18 + Vite + Tailwind CSS + React Router v6
+Backend:   Supabase (PostgreSQL + Auth + RLS)
+Icons:     Lucide React
+Fonts:     Playfair Display (títulos) + Inter (body)
 ```
 
-### Estructura del Repositorio
+### **Base de Datos (Supabase PostgreSQL):**
+
+**Tablas principales:**
+1. **listas_oferta** - Listas/catálogos de productos
+2. **productos** - Productos dentro de cada lista
+3. **administradores** - Usuarios admin (vinculado a Supabase Auth)
+
+**Políticas RLS:**
+- Usuarios autenticados: Full access a admin
+- Usuarios anónimos: Solo listas/productos publicados
+
+---
+
+## 📂 ESTRUCTURA DE ARCHIVOS CLAVE
+
 ```
 pwa-import-marketplace/
-├── docs/                          # 📚 Documentación completa
-│   ├── requirements/              # Requerimientos de negocio
-│   │   ├── 01-productos-calculo-precios.md
-│   │   └── 03-auth-admin.md
-│   ├── architecture/              # Arquitectura técnica
-│   │   └── modelo-datos.md
-│   ├── prompts/                   # Historial de desarrollo con Claude
-│   │   ├── session-002-modelo-datos.md
-│   │   ├── session-003-frontend-inicial.md
-│   │   ├── session-004-formulario-listas.md
-│   │   └── session-005-editor-productos.md
-│   ├── api/                       # Documentación de APIs
-│   └── deployment/                # Guías de despliegue
-│
-├── frontend/                      # 🎨 Aplicación React PWA
+├── frontend/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── Layout.jsx
-│   │   │   ├── ModalCrearLista.jsx
-│   │   │   └── ModalEditorProducto.jsx
+│   │   │   ├── Layout.jsx               # Layout admin con header
+│   │   │   ├── PublicLayout.jsx         # Layout público sin auth
+│   │   │   ├── AccionesLista.jsx        # Botones de gestión de lista
+│   │   │   ├── AccionesProducto.jsx     # Botones de gestión de producto
+│   │   │   └── ModalConfirmacion.jsx    # Modal reutilizable
+│   │   │
 │   │   ├── pages/
-│   │   │   ├── ListasPage.jsx
-│   │   │   └── ProductosPage.jsx
+│   │   │   ├── admin/
+│   │   │   │   └── DashboardPage.tsx    # Dashboard con stats
+│   │   │   ├── auth/
+│   │   │   │   ├── LoginPage.tsx        # Página de login
+│   │   │   │   └── LoginForm.tsx        # Formulario de login
+│   │   │   ├── ListasPage.jsx           # Gestión de listas
+│   │   │   ├── ProductosPage.jsx        # Gestión de productos
+│   │   │   ├── CatalogoPage.jsx         # Vista pública: listas
+│   │   │   ├── CatalogoListaPage.jsx    # Vista pública: productos de lista
+│   │   │   └── CatalogoProductoPage.jsx # Vista pública: detalle producto
+│   │   │
 │   │   ├── services/
-│   │   │   ├── supabaseClient.js
-│   │   │   └── uploadService.js
-│   │   ├── App.jsx
-│   │   └── index.css
-│   ├── .env.local                 # Variables de entorno (no en git)
+│   │   │   ├── supabaseClient.js        # Cliente de Supabase
+│   │   │   ├── estadosService.js        # Gestión de estados (publicar, cerrar, etc)
+│   │   │   └── catalogoService.js       # Queries para catálogo público
+│   │   │
+│   │   ├── features/auth/               # Feature de autenticación
+│   │   ├── App.jsx                      # Router principal
+│   │   └── main.jsx
+│   │
+│   ├── .env                             # Variables de entorno (Supabase)
 │   ├── package.json
-│   ├── vite.config.js
-│   └── tailwind.config.js
+│   ├── tailwind.config.js               # Configuración Tailwind (tema custom)
+│   └── vite.config.js
 │
-├── supabase/                      # ⚙️ Configuración backend
-│   ├── migrations/
-│   │   └── 001_inicial.sql
-│   └── schema_listas_productos.sql
+├── database/
+│   ├── 01_schema_inicial.sql            # Schema completo
+│   └── 02_politicas_rls_publico.sql     # Políticas RLS para público
 │
-└── scripts/                       # 🔧 Scripts de utilidad
+└── docs/
+    ├── README.md                        # Documentación principal
+    ├── ESTADO_VISUAL.md                 # Estado del proyecto con métricas
+    └── SESION_010_COMPLETA.md           # Última sesión completa
 ```
 
 ---
 
-## 🗄️ Modelo de Datos
+## 🔐 SISTEMA DE ESTADOS
 
-### Tabla: `listas_oferta`
-
-**Propósito:** Agrupa productos con parámetros económicos comunes (TRM y TAX).
-
-```sql
-CREATE TABLE listas_oferta (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  titulo VARCHAR(200) NOT NULL,
-  descripcion TEXT,
-  trm_lista DECIMAL(10,2) NOT NULL CHECK (trm_lista > 0),
-  tax_modo_lista tax_modo NOT NULL,
-  tax_porcentaje_lista DECIMAL(5,2) CHECK (tax_porcentaje_lista >= 0),
-  tax_usd_lista DECIMAL(10,2) CHECK (tax_usd_lista >= 0),
-  estado estado_lista DEFAULT 'borrador',
-  fecha_oferta DATE,
-  creado_por UUID REFERENCES auth.users(id),
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
+### **Estados de Lista:**
+```
+borrador → publicada → cerrada → archivada
+   ↓           ↓          ↓
+   └───────────┴──────────→ archivada
 ```
 
-**Estados:** `borrador`, `publicada`, `cerrada`, `archivada`
+- **borrador:** En construcción, no visible públicamente
+- **publicada:** Visible en catálogo, permite modificaciones
+- **cerrada:** Visible en catálogo, sin modificaciones permitidas
+- **archivada:** No visible, histórica
 
-### Tabla: `productos`
-
-**Propósito:** Productos individuales con cálculos automáticos basados en su lista.
-
-```sql
-CREATE TABLE productos (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  id_lista UUID NOT NULL REFERENCES listas_oferta(id) ON DELETE CASCADE,
-  titulo VARCHAR(200) NOT NULL,
-  marca VARCHAR(100),
-  categoria categoria_producto NOT NULL,
-  descripcion TEXT,
-  imagenes TEXT[] NOT NULL DEFAULT '{}',
-  precio_base_usd DECIMAL(10,2) NOT NULL CHECK (precio_base_usd > 0),
-  margen_porcentaje DECIMAL(5,2) DEFAULT 0,
-  costo_total_usd DECIMAL(10,2),
-  costo_total_cop DECIMAL(12,0),
-  precio_sugerido_cop DECIMAL(12,0),
-  precio_final_cop DECIMAL(12,0),
-  ganancia_cop DECIMAL(12,0),
-  estado estado_producto DEFAULT 'borrador',
-  publicado_at TIMESTAMP,
-  publicado_por UUID REFERENCES auth.users(id),
-  trm_usada_publicacion DECIMAL(10,2),
-  tax_usado_publicacion DECIMAL(10,2),
-  margen_usado_publicacion DECIMAL(5,2),
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW(),
-  CONSTRAINT precio_mayor_o_igual_costo CHECK (precio_final_cop >= costo_total_cop),
-  CONSTRAINT imagenes_minimo_una CHECK (array_length(imagenes, 1) >= 1 OR estado != 'publicado')
-);
+### **Estados de Producto:**
+```
+borrador → listo_para_publicar → publicado ⟷ oculto
 ```
 
-**Estados:** `borrador`, `listo_para_publicar`, `publicado`, `oculto`
+- **borrador:** En edición
+- **listo_para_publicar:** Completo pero no publicado
+- **publicado:** Visible en catálogo público
+- **oculto:** Temporalmente no visible
 
-### Lógica de Cálculos (Triggers Automáticos)
+### **Transiciones Implementadas:**
 
-**1. `trigger_calcular_valores_producto` (BEFORE INSERT/UPDATE):**
-- Calcula automáticamente: costo_total_cop, precio_sugerido_cop, ganancia_cop
-- Redondea todos los valores COP a miles (no decenas)
-- Se ejecuta cuando cambia: precio_base_usd, margen_porcentaje, precio_final_cop
+**Listas:**
+- `publicarLista(id)` - borrador → publicada
+- `cerrarLista(id)` - publicada → cerrada
+- `archivarLista(id)` - cualquier estado → archivada
 
-**2. `trigger_congelar_snapshot` (BEFORE UPDATE):**
-- Congela valores al publicar: trm_usada, tax_usado, margen_usado, publicado_at
+**Productos:**
+- `marcarListoParaPublicar(id)` - borrador → listo_para_publicar
+- `publicarProducto(id)` - listo_para_publicar → publicado
+- `ocultarProducto(id)` - publicado ⟷ oculto
 
-**3. `trigger_recalcular_productos` (AFTER UPDATE en listas_oferta):**
-- Recalcula productos en borrador cuando cambia TRM/TAX de lista
-- NO afecta productos publicados (conservan snapshot)
+---
 
-### Fórmulas de Cálculo
+## 🎨 SISTEMA DE DISEÑO "CHIC IMPORT USA"
 
+### **Paleta de Colores (Tailwind Config):**
 ```javascript
-// 1. TAX aplicado
-if (tax_modo === 'porcentaje') {
-  taxUsd = precio_base_usd * (tax_porcentaje / 100)
-} else {
-  taxUsd = tax_usd_fijo
+colors: {
+  gold: {
+    50: '#FFF9E6',
+    100: '#FFF3CC',
+    400: '#E8C547',
+    600: '#D4AF37',  // Principal
+    700: '#B8972F'
+  },
+  emerald: {
+    50: '#E8F5F0',
+    600: '#2F6F4F',  // Secundario
+    700: '#265A40'
+  },
+  bordeaux: {
+    50: '#F9E8E8',
+    600: '#8A1C1C',  // Acento
+    700: '#6E1616'
+  }
 }
+```
 
-// 2. Costo total
-costo_total_usd = precio_base_usd + taxUsd
-costo_total_cop = redondearAMil(costo_total_usd * trm)
-
-// 3. Precio sugerido
-precio_sugerido_cop = redondearAMil(costo_total_cop * (1 + margen / 100))
-
-// 4. Ganancia
-ganancia_cop = redondearAMil(precio_final_cop - costo_total_cop)
-
-// Redondeo a miles
-const redondearAMil = (valor) => Math.round(valor / 1000) * 1000
+### **Tipografía:**
+```javascript
+fontFamily: {
+  display: ['Playfair Display', 'serif'],
+  body: ['Inter', 'sans-serif']
+}
 ```
 
 ---
 
-## 🎨 Frontend - Componentes Principales
+## 🛣️ RUTAS IMPLEMENTADAS
 
-### Layout.jsx
-- Header con logo y título
-- Área de contenido principal
-- Footer
+### **Rutas Públicas (sin autenticación):**
+```
+/                               → Redirige a /catalogo
+/catalogo                       → Lista de ofertas publicadas
+/catalogo/:id                   → Productos de una lista específica
+/catalogo/:id/:idProducto       → Detalle completo de producto
+```
 
-### ListasPage.jsx
-- Grid de tarjetas de listas de oferta
-- Información: título, TRM, TAX, fecha
-- Estados visuales por color
-- Botón "Nueva Lista" → abre ModalCrearLista
-- Click en lista → navega a ProductosPage
+### **Rutas Administrativas (requieren login):**
+```
+/admin/login                    → Página de inicio de sesión
+/admin/dashboard                → Dashboard con estadísticas
+/admin/listas                   → Gestión de listas
+/admin/listas/:id/productos     → Gestión de productos de una lista
+```
 
-### ModalCrearLista.jsx
-- Formulario completo para crear listas
-- Campos: título, descripción, fecha, TRM
-- Selector visual de modo TAX (Porcentaje vs Valor Fijo USD)
-- Validaciones en tiempo real
-- Estados de carga
-- Callback para actualizar lista sin refrescar
+---
 
-### ProductosPage.jsx
+## 💰 LÓGICA DE PRECIOS
+
+### **Campos en Lista:**
+```javascript
+{
+  trm_lista: 4250.00,              // Tasa de cambio USD → COP
+  tax_modo_lista: 'porcentaje',    // o 'fijo'
+  tax_porcentaje_lista: 15,        // Si modo es porcentaje
+  tax_usd_lista: null,             // Si modo es fijo
+  margen_default_porcentaje: 30    // Margen de ganancia por defecto
+}
+```
+
+### **Cálculos Automáticos en Producto:**
+```javascript
+// Cuando se crea/actualiza producto:
+costo_total_cop = precio_base_usd * trm_lista
+precio_final_cop = costo_total_cop * (1 + margen/100)
+ganancia_cop = precio_final_cop - costo_total_cop
+```
+
+### **Snapshot al Publicar:**
+Al publicar una lista, se ejecuta `fn_snapshot_valores_lista(id_lista)` que:
+1. Toma valores actuales de TRM, TAX, margen
+2. Los guarda en columnas `_snapshot` de cada producto
+3. Congela los cálculos para que no cambien si se modifica la lista
+
+---
+
+## 🔒 SEGURIDAD Y ACCESO
+
+### **Datos Visibles Públicamente:**
+- ✅ titulo, descripcion, marca
+- ✅ imagenes (array de URLs)
+- ✅ precio_final_cop
+- ✅ estado (solo si es 'publicado')
+
+### **Datos Ocultos al Público:**
+- ❌ precio_base_usd
+- ❌ costo_total_cop
+- ❌ ganancia_cop
+- ❌ trm_lista, tax_*, margen_*
+- ❌ Cualquier producto que no esté en estado 'publicado'
+
+### **RLS Implementado:**
+```sql
+-- Política para público: Solo listas publicadas/cerradas
+CREATE POLICY "public_can_view_published_listas"
+ON listas_oferta FOR SELECT
+TO anon
+USING (estado IN ('publicada', 'cerrada'));
+
+-- Política para público: Solo productos publicados de listas públicas
+CREATE POLICY "public_can_view_published_productos"
+ON productos FOR SELECT
+TO anon
+USING (
+  estado = 'publicado' AND
+  id_lista IN (
+    SELECT id FROM listas_oferta 
+    WHERE estado IN ('publicada', 'cerrada')
+  )
+);
+```
+
+---
+
+## 🎯 FUNCIONALIDADES IMPLEMENTADAS DETALLADAMENTE
+
+### **1. Dashboard (admin)**
+- Muestra estadísticas en tiempo real desde Supabase:
+  - Total de listas (todas)
+  - Total de productos (todos)
+  - Listas activas (publicadas/cerradas)
+  - Productos publicados
+- Cards con iconos y colores del sistema de diseño
+- Responsive design
+
+### **2. Gestión de Listas**
+- Crear lista con: título, descripción, fecha, TRM, TAX, margen
+- Ver listas en tabla con badges de estado
+- Acciones según estado:
+  - borrador: Publicar (con validación)
+  - publicada: Cerrar, Archivar
+  - cerrada: Archivar
+- Modales de confirmación para acciones críticas
+- No permite modificar lista publicada/cerrada (snapshot protege valores)
+
+### **3. Gestión de Productos**
+- Agregar producto con: título, marca, descripción, imágenes, precio base USD
+- Cálculo automático de: costo COP, precio final COP, ganancia COP
+- Ver productos en tabla con badges de estado
+- Acciones según estado:
+  - borrador: Marcar Listo para Publicar
+  - listo_para_publicar: Publicar Producto
+  - publicado: Ocultar
+  - oculto: Publicar (de nuevo)
+- Warning cuando lista no permite modificaciones
+- Stats: "X de Y productos publicados"
+
+### **4. Catálogo Público - Listas**
+- Hero section con título y descripción
+- Grid de cards de listas publicadas/cerradas
+- Cada card muestra:
+  - Título y descripción
+  - Badge de estado
+  - Fecha de oferta
+  - Contador de productos publicados
+  - Botón "Ver Productos"
+- Sin header de admin, sin login requerido
+
+### **5. Catálogo Público - Productos**
 - Header con info de la lista
-- Grid de productos con imágenes
-- Visualización de cálculos económicos
-- Botón "Agregar Producto" → abre ModalEditorProducto
-- Estados visuales por producto
+- Breadcrumb: Catálogo > [Nombre Lista]
+- Grid de cards de productos
+- Cada card muestra:
+  - Primera imagen
+  - Título y marca
+  - Precio en COP formateado
+  - Botón "Ver Detalles"
+- Empty state si no hay productos publicados
 
-### ModalEditorProducto.jsx
-- **Dos columnas:** Información del producto + Calculadora
-- Campos básicos: título, marca, categoría, descripción
-- Gestión de imágenes (cámara y galería)
-- Calculadora en tiempo real:
-  - Precio base USD
-  - Margen %
-  - Resultados: TAX, costo COP, precio sugerido, ganancia
-- Modo manual/automático para precio final (checkbox)
-- Upload a Supabase Storage
-- Validaciones completas
+### **6. Catálogo Público - Detalle Producto**
+- Breadcrumb completo: Catálogo > Lista > Producto
+- Carrusel de imágenes:
+  - Imagen principal grande
+  - Controles anterior/siguiente
+  - Miniaturas clickeables
+  - Indicador de posición (1/X)
+- Información completa:
+  - Título, marca
+  - Descripción
+  - Precio destacado en grande
+  - Badge de estado
+- Botón "Contactar por WhatsApp" (preparado)
+- Botón "Volver a la Lista"
 
 ---
 
-## 📦 Servicios
+## 🔄 FLUJO DE TRABAJO COMPLETO
 
-### supabaseClient.js
+### **Administrador Publica Lista:**
+```
+1. Login → Dashboard
+2. Click "Crear Lista"
+3. Llenar formulario (título, descripción, TRM, TAX, margen)
+4. Submit → Lista creada en estado "borrador"
+5. Click en lista → Ver productos
+6. Click "Agregar Producto"
+7. Llenar formulario (título, marca, descripción, precio USD, imágenes)
+   → Sistema calcula automáticamente costo y precio final COP
+8. Submit → Producto creado en estado "borrador"
+9. Repetir pasos 6-8 para agregar más productos
+10. Para cada producto: Click "Marcar Listo para Publicar"
+    → Producto pasa a estado "listo_para_publicar"
+11. Cuando todos listos: Click "Publicar Lista"
+    → Validación: ¿Hay al menos 1 producto listo?
+    → Si OK: Lista → "publicada", Productos listos → "publicado"
+    → Se ejecuta snapshot de valores
+12. Opcionalmente:
+    - "Cerrar Lista" → No permite más modificaciones
+    - "Archivar Lista" → Desaparece del catálogo
+    - "Publicar Producto" → Publicar producto individual
+    - "Ocultar Producto" → Ocultar temporalmente
+```
+
+### **Usuario Público Explora:**
+```
+1. Visita /catalogo (sin login)
+2. Ve grid de listas publicadas/cerradas
+3. Click en una lista
+4. Ve grid de productos publicados de esa lista
+5. Click en un producto
+6. Ve detalle completo con carrusel de imágenes
+7. Click "Contactar por WhatsApp" (preparado para implementar)
+```
+
+---
+
+## 📦 SERVICIOS IMPLEMENTADOS
+
+### **estadosService.js**
 ```javascript
-import { createClient } from '@supabase/supabase-js'
+// Gestión de estados de listas
+publicarLista(id)           // Publica lista y productos listos
+cerrarLista(id)             // Cierra lista
+archivarLista(id)           // Archiva lista
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+// Gestión de estados de productos
+marcarListoParaPublicar(id) // Marca producto como listo
+publicarProducto(id)        // Publica producto individual
+ocultarProducto(id)         // Oculta producto temporalmente
 
-export const supabase = createClient(supabaseUrl, supabaseKey)
+// Helpers
+getAccionesDisponiblesLista(estado)           // Retorna acciones según estado
+getAccionesDisponiblesProducto(estado, ...)   // Retorna acciones según estado
 ```
 
-### uploadService.js
+### **catalogoService.js**
 ```javascript
-// uploadImage(file, folder) - Sube una imagen
-// uploadMultipleImages(files, folder) - Sube múltiples
-// deleteImage(imageUrl) - Elimina imagen del Storage
+// Queries para catálogo público (usan RLS)
+getListasPublicas()              // Solo listas publicadas/cerradas
+getListaPublicaById(id)          // Lista específica con contador
+getProductosPublicos(id_lista)   // Solo productos publicados
+getProductoPublicoById(id)       // Producto específico
+
+// Helpers
+formatearPrecioCOP(precio)       // Formato: $12.345.678
+formatearFecha(fecha)            // Formato: 20 Nov 2025
 ```
 
 ---
 
-## ⚙️ Configuración de Supabase
+## 🐛 ISSUES CONOCIDOS Y LIMITACIONES
 
-### Storage Bucket
-- **Nombre:** `productos-imagenes`
-- **Público:** Sí (en desarrollo)
-- **Estructura:** `productos-imagenes/productos/timestamp-uuid.ext`
+### **Funcionalidades Pendientes:**
+1. ❌ **No hay edición de listas/productos** - Solo crear y cambiar estados
+2. ❌ **No hay eliminación** - Solo archivar listas
+3. ❌ **Imágenes son URLs externas** - No hay upload a Supabase Storage
+4. ❌ **No hay búsqueda** - Solo navegación por listas
+5. ❌ **No hay filtros** - No se puede filtrar por precio, marca, etc.
+6. ❌ **WhatsApp no conectado** - Botón preparado pero no funcional
+7. ❌ **No hay paginación** - Si hay muchos productos, todos cargan
 
-### RLS (Row Level Security)
-```sql
--- DESARROLLO: Políticas públicas
-CREATE POLICY "Public can upload" ON storage.objects FOR INSERT TO public;
-CREATE POLICY "Public can view" ON storage.objects FOR SELECT TO public;
-CREATE POLICY "Public can delete" ON storage.objects FOR DELETE TO public;
-
--- PRODUCCIÓN: Requiere autenticación (pendiente Módulo 03)
-```
-
-### Variables de Entorno (.env.local)
-```bash
-VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
-VITE_SUPABASE_ANON_KEY=tu-anon-key
-```
+### **Consideraciones Técnicas:**
+- Plan gratuito de Supabase requiere login semanal para mantener proyecto activo
+- RLS debe estar habilitado siempre
+- La columna `margen_default_porcentaje` fue agregada manualmente (no está en schema inicial)
 
 ---
 
-## 🚀 Comandos Útiles
+## 🔧 CONFIGURACIÓN DE ENTORNO
+
+### **Variables de Entorno (.env en frontend/):**
+```env
+VITE_SUPABASE_URL=https://[tu-proyecto].supabase.co
+VITE_SUPABASE_ANON_KEY=[tu-anon-key]
+```
+
+### **Configuración Tailwind (tailwind.config.js):**
+- Tema custom con colores Chic Import USA
+- Fuentes: Playfair Display + Inter
+- Configuración de contenido para React
+
+---
+
+## 📈 PRÓXIMOS PASOS SUGERIDOS
+
+### **Alta Prioridad:**
+1. **Editar Listas y Productos** - Permitir modificar datos
+2. **Eliminar Listas y Productos** - Con confirmación
+3. **Upload de Imágenes** - Usar Supabase Storage
+4. **Búsqueda de Productos** - Full-text search
+5. **Filtros en Catálogo** - Por precio, marca, lista
+
+### **Media Prioridad:**
+6. **Formulario de Contacto Funcional** - Enviar a email/WhatsApp
+7. **WhatsApp Integration** - Botón real de WhatsApp
+8. **Paginación** - Para listas/productos largos
+9. **Dashboard Analytics** - Gráficos y métricas avanzadas
+10. **Gestión de Usuarios Admin** - CRUD de administradores
+
+### **Baja Prioridad:**
+11. Multi-idioma (ES/EN)
+12. PWA completa (offline mode, install)
+13. Push notifications
+14. Integración con pagos
+15. Sistema de favoritos
+16. Export a PDF/Excel
+
+---
+
+## 📚 DOCUMENTACIÓN DISPONIBLE
+
+En `docs/`:
+- **README.md** - Documentación completa del proyecto
+- **ESTADO_VISUAL.md** - Estado actual con métricas visuales
+- **SESION_010_COMPLETA.md** - Documentación de última sesión
+- **GUIA_GIT_COMMIT.md** - Guía para hacer commits
+- Guías de implementación de Fase 1 y Fase 2
+- Guías de navegación
+
+---
+
+## 🎯 INFORMACIÓN PARA IA ASSISTANTS
+
+### **Estilo de Código Preferido:**
+- React funcional con hooks (no clases)
+- Tailwind CSS para estilos (no CSS modules)
+- Nombres descriptivos en español para variables de negocio
+- Componentes pequeños y reutilizables
+- Preferir cambios incrementales sobre reemplazos completos
+
+### **Convenciones:**
+- Componentes: PascalCase (ej: `AccionesLista.jsx`)
+- Funciones: camelCase (ej: `publicarLista()`)
+- Archivos de servicio: camelCase (ej: `estadosService.js`)
+- Constantes: UPPER_SNAKE_CASE
+
+### **Testing:**
+- Actualmente: Testing manual solamente
+- No hay tests automatizados implementados
+- Importante probar flujos completos manualmente
+
+---
+
+## 🔍 COMANDOS ÚTILES
 
 ```bash
-# Desarrollo frontend
+# Desarrollo
 cd frontend
-npm run dev          # Puerto 3000
+npm run dev        # Inicia servidor de desarrollo (http://localhost:5173)
 
-# Build producción
-npm run build
-npm run preview
+# Build
+npm run build      # Crea build de producción en dist/
 
-# Verificar base de datos
-# En Supabase SQL Editor:
-SELECT * FROM listas_oferta ORDER BY created_at DESC;
-SELECT * FROM productos WHERE id_lista = 'uuid-aqui';
+# Preview build
+npm run preview    # Preview del build de producción
+
+# Git
+git status
+git add .
+git commit -m "feat: descripción"
+git push origin main
 ```
 
 ---
 
-## ✅ Funcionalidades Completadas (Módulo 01)
+## 📞 INFORMACIÓN DE CONTACTO DEL PROYECTO
 
-- [x] Modelo de datos completo (tablas, triggers, constraints)
-- [x] Frontend con React + Vite + Tailwind
-- [x] Visualización de listas y productos
-- [x] Formulario de creación de listas con selector TAX
-- [x] Editor completo de productos
-- [x] Calculadora de precios en tiempo real
-- [x] Upload de imágenes a Supabase Storage
-- [x] Gestión de múltiples imágenes por producto
-- [x] Modo manual/automático para precio final
-- [x] Validaciones completas (cliente y BD)
-- [x] Redondeo automático a miles
-- [x] Formato de moneda colombiana
-- [x] Triggers para cálculos automáticos
-- [x] Recálculo selectivo (solo borradores)
-- [x] Snapshot al publicar (valores congelados)
+- **Proyecto:** Chic Import USA - PWA Import Marketplace
+- **Repositorio:** (Privado)
+- **Desarrollador:** Hector
+- **Stack:** React + Supabase
+- **Versión:** v0.5.0
+- **Estado:** ✅ Operativo, en desarrollo activo
 
 ---
 
-## 🔄 Decisiones Técnicas Importantes
+## ⚡ INICIO RÁPIDO PARA NUEVA SESIÓN
 
-### 1. TRM y TAX a nivel de Lista (no por producto)
-**Razón:** Coherencia económica en cada oferta. Todos los productos de una lista comparten la misma TRM y política de TAX.
+**Si necesitas hacer cambios:**
 
-### 2. Redondeo a miles (no decenas)
-**Cambio realizado en sesión 005**  
-**Razón:** Precios en Colombia se manejan mejor en miles (ej: $449,000 en vez de $449,350)
+1. **Ver estructura actual:**
+   - Frontend en `/frontend/src/`
+   - Servicios en `/frontend/src/services/`
+   - Componentes en `/frontend/src/components/`
+   - Páginas en `/frontend/src/pages/`
 
-### 3. Triggers en PostgreSQL para cálculos
-**Razón:** Garantiza consistencia de datos sin depender del frontend. Los cálculos siempre son correctos.
+2. **Flujos clave implementados:**
+   - Autenticación: `features/auth/`
+   - Gestión de estados: `estadosService.js`
+   - Catálogo público: `catalogoService.js`
 
-### 4. Supabase Storage en vez de Base64
-**Razón:** 
-- Base de datos más liviana (solo URLs)
-- CDN optimizado de Supabase
-- Mejor performance de carga
-- Caché eficiente
+3. **Sistema de estados:**
+   - Listas: borrador → publicada → cerrada → archivada
+   - Productos: borrador → listo → publicado ⟷ oculto
 
-### 5. Modo manual/automático para precio final
-**Razón:** Por defecto el precio se actualiza automáticamente, pero el admin puede fijarlo manualmente si lo necesita.
+4. **RLS activo:**
+   - Público: Solo listas/productos publicados
+   - Admin: Full access autenticado
 
-### 6. Snapshot al publicar
-**Razón:** Una vez publicado, el producto no debe cambiar aunque se modifique TRM/TAX de la lista. Conserva los valores económicos exactos con los que se publicó.
-
-### 7. Recálculo selectivo
-**Razón:** Si cambia TRM/TAX de lista, solo se recalculan productos en borrador. Los publicados mantienen su snapshot.
+5. **Próxima funcionalidad sugerida:**
+   - Edición de listas y productos (alta prioridad)
 
 ---
 
-## 🐛 Problemas Resueltos Durante el Desarrollo
+## 🎯 PREGUNTAS FRECUENTES
 
-### 1. Error con Tailwind v4
-- **Problema:** Incompatibilidad con PostCSS
-- **Solución:** Downgrade a Tailwind v3.4.0
+**Q: ¿Cómo agregar una nueva columna a una tabla?**
+A: Usar Supabase SQL Editor, ejecutar ALTER TABLE, actualizar types de TypeScript
 
-### 2. RLS bloqueando acceso
-- **Problema:** Datos no visibles en frontend
-- **Solución:** Deshabilitar RLS temporalmente (requiere auth en producción)
+**Q: ¿Cómo cambiar el sistema de colores?**
+A: Modificar `tailwind.config.js` en la sección `theme.extend.colors`
 
-### 3. Order of Hooks en React
-- **Problema:** Hooks llamados después de return condicional
-- **Solución:** Mover todos los hooks antes del `if (!isOpen) return null`
+**Q: ¿Cómo agregar una nueva ruta?**
+A: Agregar en `App.jsx`, crear componente de página, actualizar navegación si es necesario
 
-### 4. Precio final no se inicializaba
-- **Problema:** Campo quedaba vacío al calcular
-- **Solución:** Mover setFormData al final de calcularValores()
+**Q: ¿Cómo modificar las políticas RLS?**
+A: Supabase Dashboard → Authentication → Policies, o SQL Editor
 
-### 5. Labels de botones de imagen
-- **Problema:** "Tomar Foto" no abría cámara en PC
-- **Solución:** Labels descriptivos + mensaje explicativo sobre cámara móvil
+**Q: ¿Cómo funciona el snapshot de valores?**
+A: Al publicar lista, función SQL `fn_snapshot_valores_lista()` copia TRM/TAX/margen a columnas `_snapshot` de productos
 
 ---
 
-## 📋 Próximos Pasos (Prioridad Alta)
-
-### 1. Módulo 03: Autenticación de Administradores
-**Requerimiento completo en:** `/docs/requirements/03-auth-admin.md`
-
-**Tareas:**
-- [ ] Configurar Supabase Auth
-- [ ] Crear tabla `administradores` con roles
-- [ ] Implementar LoginPage con formulario
-- [ ] Proteger rutas `/admin/*` con AuthGuard
-- [ ] Gestionar tokens JWT en localStorage
-- [ ] Implementar logout
-- [ ] Actualizar políticas RLS para requerir auth
-
-### 2. Funcionalidades Pendientes del Módulo 01
-- [ ] Editar productos existentes
-- [ ] Publicar productos (cambiar estado)
-- [ ] Ocultar productos publicados
-- [ ] Eliminar productos (solo borradores)
-- [ ] Editar listas de oferta
-- [ ] Cambiar estado de lista
-- [ ] Vista de lista archivada
-
-### 3. Optimizaciones
-- [ ] Paginación de productos
-- [ ] Búsqueda y filtros
-- [ ] Optimización de imágenes (resize automático)
-- [ ] Loading states mejorados
-- [ ] Manejo de errores más robusto
+**✅ ESTE DOCUMENTO CONTIENE TODO EL CONTEXTO NECESARIO PARA CONTINUAR EL DESARROLLO**
 
 ---
 
-## 🔐 Notas de Seguridad
-
-### Desarrollo Actual (Sin Autenticación)
-```sql
--- RLS deshabilitado temporalmente
-ALTER TABLE listas_oferta DISABLE ROW LEVEL SECURITY;
-ALTER TABLE productos DISABLE ROW LEVEL SECURITY;
-
--- Storage público
-Bucket 'productos-imagenes' → público
-```
-
-### Producción (Requiere Autenticación - Módulo 03)
-```sql
--- RLS habilitado con políticas por rol
-ALTER TABLE listas_oferta ENABLE ROW LEVEL SECURITY;
-ALTER TABLE productos ENABLE ROW LEVEL SECURITY;
-
--- Solo admins autenticados pueden crear/editar
-CREATE POLICY "Admins can manage" ON listas_oferta
-FOR ALL USING (auth.role() IN ('admin_full', 'superadmin'));
-
--- Storage requiere autenticación
-Bucket 'productos-imagenes' → privado con políticas auth
-```
-
----
-
-## 📖 Referencias Útiles
-
-### Documentación del Proyecto
-- **Requerimientos Módulo 01:** `/docs/requirements/01-productos-calculo-precios.md`
-- **Requerimientos Módulo 03:** `/docs/requirements/03-auth-admin.md`
-- **Modelo de Datos:** `/docs/architecture/modelo-datos.md`
-- **Historial de Sesiones:** `/docs/prompts/session-*.md`
-
-### Documentación Externa
-- [Supabase Docs](https://supabase.com/docs)
-- [Supabase Auth](https://supabase.com/docs/guides/auth)
-- [Supabase Storage](https://supabase.com/docs/guides/storage)
-- [React Docs](https://react.dev)
-- [Vite Docs](https://vitejs.dev)
-- [Tailwind CSS](https://tailwindcss.com/docs)
-
-### Comandos SQL Útiles
-```sql
--- Ver estructura de tabla
-SELECT column_name, data_type, is_nullable
-FROM information_schema.columns
-WHERE table_name = 'listas_oferta';
-
--- Ver triggers activos
-SELECT * FROM pg_trigger WHERE tgname LIKE '%producto%';
-
--- Ver políticas RLS
-SELECT * FROM pg_policies WHERE tablename = 'listas_oferta';
-
--- Ver imágenes en Storage
-SELECT * FROM storage.objects WHERE bucket_id = 'productos-imagenes';
-
--- Datos de prueba
-SELECT l.titulo, COUNT(p.id) as productos, l.trm_lista, l.tax_modo_lista
-FROM listas_oferta l
-LEFT JOIN productos p ON p.id_lista = l.id
-GROUP BY l.id;
-```
-
----
-
-## 🎓 Para Claude: Cómo Usar Este Documento
-
-**Cuando el usuario inicie una nueva conversación:**
-
-1. **Leer este documento primero** para entender el contexto completo
-2. **Leer `/docs/prompts/session-*.md`** para ver el historial de desarrollo
-3. **Consultar los requerimientos** en `/docs/requirements/` cuando sea necesario
-4. **Verificar el estado actual** en los archivos de sesión más recientes
-
-**Lo que debes saber:**
-- El proyecto está en desarrollo activo
-- Módulo 01 está completado y funcional
-- Módulo 03 (Auth) es la siguiente prioridad
-- Todas las decisiones técnicas están documentadas
-- Hay problemas conocidos resueltos (ver sección de problemas)
-- El modelo de datos tiene triggers automáticos importantes
-
-**Lo que NO debes hacer:**
-- No sugieras cambios al modelo de datos sin revisar primero el modelo completo
-- No ignores las decisiones técnicas ya tomadas (TRM/TAX a nivel lista, redondeo a miles, etc.)
-- No cambies la estructura de carpetas sin discutir primero
-- No rompas la nomenclatura de archivos de sesiones (session-XXX-descripcion.md)
-
-**Flujo recomendado para continuar:**
-1. Pregunta al usuario qué necesita (nueva funcionalidad, bug fix, optimización)
-2. Revisa la documentación relevante
-3. Propón solución basada en el contexto existente
-4. Implementa cambios
-5. Actualiza la documentación (crear nueva sesión en `/docs/prompts/`)
-6. Actualiza este archivo si hay cambios importantes
-
----
-
-**Última sesión completada:** Sesión 005 - Editor de Productos Completo  
-**Próxima sesión sugerida:** Sesión 006 - Implementación de Autenticación (Módulo 03)
+**Última actualización:** Noviembre 20, 2025  
+**Versión de contexto:** 1.0  
+**Para proyecto:** Chic Import USA - PWA Import Marketplace v0.5.0

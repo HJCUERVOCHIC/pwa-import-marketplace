@@ -3,8 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Package, ChevronLeft, ChevronRight } from 'lucide-react'
 import PublicLayout from '../components/PublicLayout'
 import { getProductoPublicoById, formatearPrecioCOP } from '../services/catalogoService'
-import BotonCompartirWhatsApp from '../components/BotonCompartirWhatsApp'
-import { compartirProducto } from '../services/whatsappService'
 
 /**
  * Página de Detalle de Producto (Catálogo Público)
@@ -243,13 +241,11 @@ function CatalogoProductoPage() {
               ¿Interesado en este producto?
             </h3>
             <p className="text-sm text-emerald-800 mb-4">
-              Contáctanos por WhatsApp para más información sobre disponibilidad, envíos y métodos de pago.
+              Contáctanos para más información sobre disponibilidad, envíos y métodos de pago.
             </p>
-            <BotonCompartirWhatsApp
-              onClick={() => compartirProducto(producto, idLista)}
-              variant="default"
-              className="w-full"
-            />
+            <button className="btn btn-primary btn-md w-full">
+              Contactar
+            </button>
           </div>
         </div>
       </div>

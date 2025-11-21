@@ -5,13 +5,6 @@ import { supabase } from '../services/supabaseClient'
 import ModalEditorProducto from '../components/ModalEditorProducto'
 import AccionesLista from '../components/AccionesLista'
 import AccionesProducto from '../components/AccionesProducto'
-import BotonCompartirWhatsApp from '../components/BotonCompartirWhatsApp'
-import { 
-  compartirProducto, 
-  compartirLista, 
-  puedeCompartirseProducto, 
-  puedeCompartirseLista 
-} from '../services/whatsappService'
 
 function ProductosPage() {
   const { id } = useParams()
@@ -126,14 +119,6 @@ function ProductosPage() {
               lista={lista}
               onActualizacion={handleActualizacion}
             />
-
-            {/* Boton Compartir Lista por WhatsApp */}
-            {lista && puedeCompartirseLista(lista, productos) && (
-              <BotonCompartirWhatsApp
-                onClick={() => compartirLista(lista, productos, lista.id)}
-                variant="default"
-              />
-            )}
             
             {listaModificable && (
               <button 
@@ -307,22 +292,13 @@ function ProductosPage() {
                   </div>
 
                   {/* Acciones del producto */}
-                  <div className="pt-3 border-t border-neutral-border space-y-2">
+                  <div className="pt-3 border-t border-neutral-border">
                     <AccionesProducto
                       producto={producto}
                       estadoLista={lista.estado}
                       onActualizacion={handleActualizacion}
                       variante="compacto"
                     />
-
-                    {/* Boton Compartir Producto por WhatsApp */}
-                    {puedeCompartirseProducto(producto) && (
-                      <BotonCompartirWhatsApp
-                        onClick={() => compartirProducto(producto, lista.id)}
-                        variant="compact"
-                        className="w-full"
-                      />
-                    )}
                   </div>
                 </div>
               </div>

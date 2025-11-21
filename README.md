@@ -1,368 +1,412 @@
-# 🛍️ PWA Import Marketplace
+# 🛍️ Chic Import USA - PWA Import Marketplace
 
-Plataforma PWA para la comercialización de productos importados desde USA con cálculo automático de precios en COP.
-
-![Estado](https://img.shields.io/badge/estado-desarrollo-yellow)
-![Módulo 01](https://img.shields.io/badge/módulo%2001-completado-green)
-![Módulo 03](https://img.shields.io/badge/módulo%2003-pendiente-red)
+**Versión:** v0.5.0  
+**Estado:** ✅ En Desarrollo Activo  
+**Última actualización:** Noviembre 2025
 
 ---
 
-## 📋 Índice
+## 📋 Descripción
 
-- [Stack Tecnológico](#-stack-tecnológico)
-- [Estructura del Proyecto](#-estructura-del-proyecto)
-- [Inicio Rápido](#-inicio-rápido)
-- [Estado del Desarrollo](#-estado-del-desarrollo)
-- [Retomar Desarrollo con Claude](#-retomar-desarrollo-con-claude)
-- [Documentación](#-documentación)
-- [Comandos Útiles](#-comandos-útiles)
+**Chic Import USA** es una aplicación web progresiva (PWA) diseñada para gestionar y publicar catálogos de productos importados desde Estados Unidos. La plataforma permite a administradores crear listas de productos con cálculos automáticos de precios basados en TRM (Tasa Representativa del Mercado) y TAX, mientras que los usuarios pueden explorar un catálogo público sin necesidad de autenticación.
+
+---
+
+## ✨ Funcionalidades Implementadas
+
+### 🔐 **Panel Administrativo**
+
+#### **Gestión de Listas**
+- ✅ Crear listas de productos con configuración de TRM, TAX y margen
+- ✅ Estados: `borrador`, `publicada`, `cerrada`, `archivada`
+- ✅ Transiciones controladas con validaciones
+- ✅ Dashboard con estadísticas en tiempo real
+
+#### **Gestión de Productos**
+- ✅ Agregar productos con cálculos automáticos en COP
+- ✅ Estados: `borrador`, `listo_para_publicar`, `publicado`, `oculto`
+- ✅ Marcar productos como listos para publicar
+- ✅ Publicación individual y masiva
+- ✅ Snapshot de valores (TRM, TAX, margen) al publicar
+
+#### **Flujo de Publicación**
+- ✅ Validaciones estrictas antes de publicar
+- ✅ Modales de confirmación para acciones críticas
+- ✅ Botones contextuales según estado
+- ✅ Cerrar y archivar listas
+- ✅ Ocultar productos temporalmente
+
+### 🌐 **Catálogo Público**
+
+#### **Acceso Sin Autenticación**
+- ✅ Vista de listas publicadas y cerradas
+- ✅ Exploración de productos por lista
+- ✅ Detalle completo de producto con carrusel de imágenes
+- ✅ Navegación fluida y breadcrumbs
+
+#### **Seguridad y Privacidad**
+- ✅ Ocultamiento de datos sensibles (costos, ganancias, márgenes)
+- ✅ Row Level Security (RLS) en Supabase
+- ✅ Solo productos y listas públicas visibles
+
+### 🎨 **Diseño**
+- ✅ Sistema de diseño "Chic Import USA" (Gold, Emerald, Bordeaux)
+- ✅ Responsive design (mobile, tablet, desktop)
+- ✅ Componentes reutilizables
+- ✅ Animaciones y transiciones suaves
 
 ---
 
 ## 🛠️ Stack Tecnológico
 
-### Frontend
-- **React 18** - Biblioteca UI
-- **Vite** - Build tool y dev server
-- **Tailwind CSS 3.4** - Framework de estilos
-- **React Router DOM** - Navegación
-- **Lucide React** - Iconos
+### **Frontend**
+- **Framework:** React 18+ con Vite
+- **Routing:** React Router v6
+- **Estilos:** Tailwind CSS
+- **Iconos:** Lucide React
+- **Tipografía:** Playfair Display + Inter (Google Fonts)
 
-### Backend
-- **Supabase** - Backend as a Service
-  - PostgreSQL (Base de datos)
-  - Auth (Autenticación JWT)
-  - Storage (Almacenamiento de imágenes)
-  - Edge Functions (Lógica serverless)
+### **Backend & Base de Datos**
+- **BaaS:** Supabase
+- **Base de Datos:** PostgreSQL
+- **Autenticación:** Supabase Auth (Email/Password)
+- **Seguridad:** Row Level Security (RLS)
 
-### Hosting
-- **Frontend:** Vercel
-- **Backend:** Supabase Cloud
+### **Herramientas**
+- **Bundler:** Vite
+- **Package Manager:** npm
+- **Version Control:** Git
 
 ---
 
-## 📁 Estructura del Proyecto
+## 📂 Estructura del Proyecto
 
 ```
 pwa-import-marketplace/
-├── docs/                          # 📚 Documentación completa
-│   ├── requirements/              # Requerimientos de negocio
-│   ├── architecture/              # Arquitectura técnica
-│   ├── prompts/                   # Historial de desarrollo
-│   ├── api/                       # Documentación de APIs
-│   └── deployment/                # Guías de despliegue
-│
-├── frontend/                      # 🎨 Aplicación React PWA
+├── frontend/
 │   ├── src/
-│   │   ├── components/            # Componentes reutilizables
-│   │   ├── pages/                 # Páginas principales
-│   │   └── services/              # Servicios (Supabase, upload)
-│   ├── .env.local                 # Variables de entorno
-│   └── package.json
+│   │   ├── components/           # Componentes reutilizables
+│   │   │   ├── Layout.jsx        # Layout admin
+│   │   │   ├── PublicLayout.jsx  # Layout público
+│   │   │   ├── AccionesLista.jsx
+│   │   │   ├── AccionesProducto.jsx
+│   │   │   └── ModalConfirmacion.jsx
+│   │   │
+│   │   ├── pages/                # Páginas de la aplicación
+│   │   │   ├── admin/
+│   │   │   │   └── DashboardPage.tsx
+│   │   │   ├── auth/
+│   │   │   │   └── LoginPage.tsx
+│   │   │   ├── ListasPage.jsx
+│   │   │   ├── ProductosPage.jsx
+│   │   │   ├── CatalogoPage.jsx          # Público
+│   │   │   ├── CatalogoListaPage.jsx     # Público
+│   │   │   └── CatalogoProductoPage.jsx  # Público
+│   │   │
+│   │   ├── services/             # Servicios y lógica de negocio
+│   │   │   ├── supabaseClient.js
+│   │   │   ├── estadosService.js
+│   │   │   └── catalogoService.js
+│   │   │
+│   │   ├── features/             # Features modulares
+│   │   │   └── auth/
+│   │   │
+│   │   ├── App.jsx               # Router principal
+│   │   ├── main.jsx
+│   │   └── index.css
+│   │
+│   ├── public/
+│   ├── index.html
+│   ├── package.json
+│   ├── tailwind.config.js
+│   └── vite.config.js
 │
-├── supabase/                      # ⚙️ Configuración backend
-│   ├── migrations/                # Migraciones SQL
-│   └── schema_listas_productos.sql
+├── database/
+│   ├── 01_schema_inicial.sql
+│   └── 02_politicas_rls_publico.sql
 │
-├── scripts/                       # 🔧 Scripts de utilidad
+├── docs/
+│   ├── prompts/
+│   └── SESION_010_COMPLETA.md
 │
-├── PROJECT_CONTEXT.md             # 📖 Contexto completo del proyecto
-├── CURRENT_STATUS.md              # 📊 Estado actual y próximos pasos
-├── START_HERE.md                  # 🚀 Guía rápida para Claude
-└── README.md                      # Este archivo
+└── README.md
 ```
 
 ---
 
-## ⚡ Inicio Rápido
+## 🚀 Instalación y Configuración
 
-### Prerequisitos
-- Node.js 18+ y npm
-- Cuenta de Supabase (gratuita)
-- Git
+### **Requisitos Previos**
+- Node.js 18+ 
+- npm 9+
+- Cuenta en Supabase
 
-### Instalación
-
-1. **Clonar el repositorio**
+### **1. Clonar el Repositorio**
 ```bash
-git clone https://github.com/HJCUERVOCHIC/pwa-import-marketplace.git
+git clone https://github.com/tu-usuario/pwa-import-marketplace.git
 cd pwa-import-marketplace
 ```
 
-2. **Configurar Supabase**
-```bash
-# Crear proyecto en https://supabase.com/dashboard
-# Copiar URL y anon key del proyecto
-```
-
-3. **Configurar variables de entorno**
+### **2. Instalar Dependencias**
 ```bash
 cd frontend
-cp .env.example .env.local
-# Editar .env.local con tus credenciales de Supabase
-```
-
-4. **Instalar dependencias**
-```bash
 npm install
 ```
 
-5. **Aplicar migraciones SQL**
-```bash
-# En Supabase Dashboard → SQL Editor
-# Ejecutar el contenido de: supabase/schema_listas_productos.sql
+### **3. Configurar Variables de Entorno**
+
+Crear archivo `.env` en `frontend/`:
+
+```env
+VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
+VITE_SUPABASE_ANON_KEY=tu-anon-key
 ```
 
-6. **Iniciar servidor de desarrollo**
+### **4. Configurar Base de Datos**
+
+En Supabase SQL Editor, ejecutar en orden:
+
+1. `database/01_schema_inicial.sql`
+2. `database/02_politicas_rls_publico.sql`
+
+Agregar columna de margen:
+```sql
+ALTER TABLE listas_oferta 
+ADD COLUMN margen_default_porcentaje NUMERIC(5,2) DEFAULT 30;
+```
+
+### **5. Iniciar Servidor de Desarrollo**
 ```bash
 npm run dev
-# Abre http://localhost:3000
 ```
 
-### Configuración Adicional
-
-Ver guía completa: `/docs/deployment/setup-local.md`
+La aplicación estará disponible en `http://localhost:5173`
 
 ---
 
-## 📊 Estado del Desarrollo
+## 📱 Rutas de la Aplicación
 
-### ✅ Módulo 01: Gestión de Productos y Cálculo de Precios (COMPLETADO)
+### **Rutas Públicas (Sin Autenticación)**
+| Ruta | Descripción |
+|------|-------------|
+| `/` | Redirige a catálogo público |
+| `/catalogo` | Lista de ofertas publicadas |
+| `/catalogo/:id` | Productos de una lista |
+| `/catalogo/:id/:idProducto` | Detalle de producto |
 
-**Funcionalidades operativas:**
-- ✅ Modelo de datos con triggers automáticos
-- ✅ Visualización de listas de oferta
-- ✅ Formulario de creación de listas (TRM + TAX)
-- ✅ Editor de productos con calculadora en tiempo real
-- ✅ Upload múltiple de imágenes a Supabase Storage
-- ✅ Cálculos automáticos (costo, precio, ganancia)
-- ✅ Modo manual/automático para precio final
-- ✅ Validaciones completas (cliente + base de datos)
-- ✅ Redondeo automático a miles
-- ✅ Formato de moneda colombiana
-
-**Pendientes menores:**
-- [ ] Edición de productos existentes
-- [ ] Publicación de productos
-- [ ] Edición y duplicado de listas
-
-### 🔴 Módulo 03: Autenticación de Administradores (PRIORIDAD ALTA)
-
-**Por implementar:**
-- [ ] Configurar Supabase Auth
-- [ ] Página de login
-- [ ] Protección de rutas
-- [ ] Gestión de roles (superadmin, admin_full)
-- [ ] Habilitar RLS (Row Level Security)
-- [ ] Políticas de seguridad en Storage
-
-**Estado actual de seguridad:** ⚠️ **SIN PROTECCIÓN** (solo desarrollo local)
-
-### 📋 Otros Módulos
-
-- **Módulo 02:** Gestión de Listas (40% completado)
-- **Módulo 04:** Catálogo Público (no iniciado)
-- **Módulo 05:** PWA Features (no iniciado)
-
-Ver estado detallado: [`CURRENT_STATUS.md`](./CURRENT_STATUS.md)
+### **Rutas Administrativas (Requieren Login)**
+| Ruta | Descripción |
+|------|-------------|
+| `/admin/login` | Inicio de sesión |
+| `/admin/dashboard` | Panel con estadísticas |
+| `/admin/listas` | Gestión de listas |
+| `/admin/listas/:id/productos` | Gestión de productos |
 
 ---
 
-## 🔄 Retomar Desarrollo con Claude
+## 🔐 Sistema de Estados
 
-Si has alcanzado el límite de conversación con Claude y necesitas continuar, sigue estos pasos:
-
-### 1️⃣ Inicia una nueva conversación
-
-### 2️⃣ Comparte estos archivos con Claude
-
-Arrastra y suelta en el chat:
+### **Estados de Lista**
 ```
-PROJECT_CONTEXT.md          # Contexto completo (arquitectura, decisiones)
-CURRENT_STATUS.md           # Estado actual y próximos pasos
-START_HERE.md               # Guía rápida para Claude
+borrador → publicada → cerrada → archivada
 ```
 
-### 3️⃣ Comparte la URL del repositorio
+- **borrador:** En construcción, no visible públicamente
+- **publicada:** Visible en catálogo, permite modificaciones
+- **cerrada:** Visible en catálogo, sin modificaciones
+- **archivada:** No visible, histórica
 
+### **Estados de Producto**
 ```
-https://github.com/HJCUERVOCHIC/pwa-import-marketplace
-```
-
-### 4️⃣ Claude estará al día
-
-Claude leerá la documentación y podrá continuar exactamente donde quedaste, conociendo:
-- ✅ Toda la arquitectura del proyecto
-- ✅ Decisiones técnicas tomadas
-- ✅ Estado actual del desarrollo
-- ✅ Funcionalidades completadas
-- ✅ Próximos pasos recomendados
-- ✅ Problemas conocidos y soluciones
-
-### 🎯 Ventajas de este Sistema
-
-- **Sin pérdida de contexto:** Claude conoce toda la historia del proyecto
-- **Continuidad garantizada:** Puede retomar desde el punto exacto
-- **Decisiones documentadas:** No se repiten debates técnicos
-- **Historial completo:** Cada sesión queda registrada en `/docs/prompts/`
-
-### 📝 Después de Cada Sesión
-
-Al terminar una sesión de desarrollo, Claude creará:
-```
-docs/prompts/session-00X-descripcion.md    # Documenta lo realizado
+borrador → listo_para_publicar → publicado ⟷ oculto
 ```
 
-Y actualizará (si es necesario):
-```
-CURRENT_STATUS.md           # Estado actualizado
-PROJECT_CONTEXT.md          # Si hubo cambios importantes
-```
+- **borrador:** En edición
+- **listo_para_publicar:** Completo pero no público
+- **publicado:** Visible en catálogo
+- **oculto:** Temporalmente no visible
 
 ---
 
-## 📚 Documentación
+## 🎨 Sistema de Diseño
 
-### Archivos Principales
-- **[PROJECT_CONTEXT.md](./PROJECT_CONTEXT.md)** - Contexto completo del proyecto
-- **[CURRENT_STATUS.md](./CURRENT_STATUS.md)** - Estado actual y próximos pasos
-- **[START_HERE.md](./START_HERE.md)** - Guía rápida para Claude
+### **Paleta de Colores**
+- **Gold (#D4AF37):** Color primario
+- **Emerald (#2F6F4F):** Color secundario
+- **Bordeaux (#8A1C1C):** Color de acento
+- **Neutrales:** Charcoal, Slate, Stone, Ivory
 
-### Requerimientos de Negocio
-- [Módulo 01: Productos y Cálculo de Precios](./docs/requirements/01-productos-calculo-precios.md)
-- [Módulo 03: Autenticación de Administradores](./docs/requirements/03-auth-admin.md)
+### **Tipografía**
+- **Display:** Playfair Display (títulos)
+- **Body:** Inter (texto general)
 
-### Arquitectura Técnica
-- [Modelo de Datos Completo](./docs/architecture/modelo-datos.md)
-
-### Historial de Desarrollo
-- [Sesión 002: Modelo de Datos](./docs/prompts/session-002-modelo-datos.md)
-- [Sesión 003: Frontend Inicial](./docs/prompts/session-003-frontend-inicial.md)
-- [Sesión 004: Formulario de Listas](./docs/prompts/session-004-formulario-listas.md)
-- [Sesión 005: Editor de Productos](./docs/prompts/session-005-editor-productos.md)
+### **Componentes**
+- Botones con variantes (primary, secondary, outline, ghost)
+- Cards con hover y sombras
+- Badges con colores por estado
+- Modales con backdrop
+- Inputs con focus ring
 
 ---
 
-## 🔧 Comandos Útiles
+## 📊 Base de Datos
 
-### Desarrollo
-```bash
-cd frontend
-npm run dev              # Inicia servidor de desarrollo (puerto 3000)
-npm run build            # Build para producción
-npm run preview          # Preview del build
-npm run lint             # Linter (si está configurado)
+### **Tablas Principales**
+
+#### **listas_oferta**
+- Almacena listas/catálogos de productos
+- Campos: `id`, `titulo`, `descripcion`, `estado`, `fecha_oferta`, `trm_lista`, `tax_modo_lista`, `tax_porcentaje_lista`, `tax_usd_lista`, `margen_default_porcentaje`
+
+#### **productos**
+- Almacena productos de cada lista
+- Campos: `id`, `id_lista`, `titulo`, `marca`, `descripcion`, `imagenes`, `precio_base_usd`, `costo_total_cop`, `precio_final_cop`, `ganancia_cop`, `estado`
+
+#### **administradores**
+- Usuarios con acceso al panel admin
+- Vinculada con Supabase Auth
+
+### **Seguridad**
+- **RLS habilitado** en todas las tablas
+- Políticas para usuarios autenticados (admin)
+- Políticas para usuarios anónimos (catálogo público)
+
+---
+
+## 🔄 Flujo de Trabajo
+
+### **1. Administrador Crea Lista**
+```
+1. Login → Dashboard
+2. Crear lista (borrador)
+3. Configurar TRM, TAX, Margen
+4. Agregar productos (borrador)
+5. Configurar precios
+6. Marcar productos como "listos para publicar"
+7. Publicar lista
+   → Lista: publicada
+   → Productos: publicado
 ```
 
-### Base de Datos (Supabase SQL Editor)
-```sql
--- Ver todas las listas
-SELECT * FROM listas_oferta ORDER BY created_at DESC;
-
--- Ver productos de una lista
-SELECT * FROM productos WHERE id_lista = 'uuid-aqui';
-
--- Ver estructura de tabla
-SELECT column_name, data_type, is_nullable
-FROM information_schema.columns
-WHERE table_name = 'productos';
-
--- Ver triggers activos
-SELECT * FROM pg_trigger WHERE tgname LIKE '%producto%';
-
--- Ver imágenes en Storage
-SELECT * FROM storage.objects WHERE bucket_id = 'productos-imagenes';
+### **2. Usuario Público Explora**
 ```
-
-### Git
-```bash
-git status                                    # Ver cambios
-git add .                                     # Agregar todos los cambios
-git commit -m "feat: descripción"            # Commit con mensaje
-git push origin main                          # Push a GitHub
-git log --oneline --graph --all              # Ver historial
+1. Visitar /catalogo
+2. Ver listas publicadas/cerradas
+3. Click en lista → Ver productos
+4. Click en producto → Ver detalle con imágenes
 ```
 
 ---
 
-## 🔐 Configuración de Seguridad
+## 🧪 Testing
 
-### ⚠️ Desarrollo (Estado Actual)
-```
-✓ RLS deshabilitado (acceso completo para pruebas)
-✓ Storage público (imágenes accesibles sin auth)
-✓ Sin autenticación requerida
-```
+### **Tests Manuales Completados**
+- ✅ Flujo completo de creación y publicación
+- ✅ Validaciones de negocio
+- ✅ Acceso público sin login
+- ✅ Ocultamiento de datos sensibles
+- ✅ Navegación entre admin y público
+- ✅ Responsive design en múltiples dispositivos
 
-### 🔒 Producción (Pendiente - Módulo 03)
-```
-✓ RLS habilitado con políticas por rol
-✓ Storage privado con acceso controlado
-✓ Autenticación obligatoria para panel admin
-✓ Tokens JWT con expiración 24h
-✓ Auditoría de accesos
-```
+---
+
+## 📈 Roadmap
+
+### **✅ Completado (v0.5.0)**
+- Gestión completa de listas y productos
+- Flujo de publicación con validaciones
+- Catálogo público sin autenticación
+- Sistema de diseño Chic Import USA
+- RLS y seguridad básica
+
+### **🔜 Próximas Funcionalidades**
+- [ ] Búsqueda de productos
+- [ ] Filtros (precio, marca, categoría)
+- [ ] Formulario de contacto funcional
+- [ ] WhatsApp integration
+- [ ] Edición de listas y productos
+- [ ] Carga de imágenes a Supabase Storage
+- [ ] Dashboard analytics
+- [ ] Export a PDF/Excel
+
+### **🎯 Futuro**
+- [ ] Multi-idioma (ES/EN)
+- [ ] PWA completa (offline mode)
+- [ ] Push notifications
+- [ ] Integración con pasarelas de pago
+- [ ] Sistema de favoritos
+- [ ] Compartir en redes sociales
 
 ---
 
 ## 🤝 Contribuir
 
-### Flujo de Trabajo
+### **Convenciones de Código**
+- Componentes React en PascalCase
+- Funciones en camelCase
+- CSS clases con Tailwind
+- Commits siguiendo Conventional Commits
 
-1. **Crear rama para feature**
-```bash
-git checkout -b feature/nombre-funcionalidad
-```
+### **Proceso de Contribución**
+1. Fork del repositorio
+2. Crear rama feature (`git checkout -b feature/nueva-funcionalidad`)
+3. Commit cambios (`git commit -m 'feat: agregar nueva funcionalidad'`)
+4. Push a la rama (`git push origin feature/nueva-funcionalidad`)
+5. Crear Pull Request
 
-2. **Desarrollar y commitear**
-```bash
-git add .
-git commit -m "feat: descripción del cambio"
-```
+---
 
-3. **Documentar en `/docs/prompts/`**
-```bash
-# Crear session-00X-descripcion.md
-```
+## 📝 Documentación Adicional
 
-4. **Push y Pull Request**
-```bash
-git push origin feature/nombre-funcionalidad
-# Crear PR en GitHub
-```
+- [Sesión 010 - Completa](docs/SESION_010_COMPLETA.md)
+- [Guía de Git y Commits](docs/GUIA_GIT_COMMIT.md)
+- [Fase 1: Flujo de Publicación](docs/GUIA_FASE_1_IMPLEMENTACION.md)
+- [Fase 2: Catálogo Público](docs/GUIA_FASE_2_IMPLEMENTACION.md)
 
-### Convenciones
+---
 
-- **Commits:** Usar [Conventional Commits](https://www.conventionalcommits.org/)
-  - `feat:` nueva funcionalidad
-  - `fix:` corrección de bug
-  - `docs:` cambios en documentación
-  - `refactor:` refactorización de código
-  - `test:` agregar tests
+## 🐛 Issues Conocidos
 
-- **Sesiones:** Documentar en `/docs/prompts/session-XXX-descripcion.md`
+- Imágenes de productos usan URLs externas (no upload directo)
+- Plan gratuito de Supabase requiere login semanal para mantener activo
+- No hay edición de listas/productos una vez creados
 
 ---
 
 ## 📄 Licencia
 
-[Definir licencia]
+Este proyecto es privado y propiedad de Chic Import USA.
+
+---
+
+## 👥 Equipo
+
+- **Desarrollo:** Hector - Full Stack Developer
+- **Especificaciones:** ChatGPT - Product Manager
+- **Implementación Técnica:** Claude - Technical Developer
 
 ---
 
 ## 📞 Contacto
 
-**Repositorio:** [github.com/HJCUERVOCHIC/pwa-import-marketplace](https://github.com/HJCUERVOCHIC/pwa-import-marketplace)
+Para más información sobre el proyecto:
+- **Email:** soporte@chicimportusa.com
+- **Website:** [En construcción]
 
 ---
 
 ## 🙏 Agradecimientos
 
-Desarrollado con la asistencia de **Claude (Anthropic)** para la arquitectura, implementación y documentación del proyecto.
+- Supabase por el excelente BaaS
+- Tailwind CSS por el sistema de diseño
+- Lucide por los iconos
+- Google Fonts por la tipografía
 
 ---
 
-**Estado del Proyecto:** 🟢 Activo - En Desarrollo  
-**Última Actualización:** 2025-11-03  
-**Próxima Prioridad:** Módulo 03 - Autenticación de Administradores
+**Última actualización:** Noviembre 2025  
+**Versión actual:** v0.5.0  
+**Estado:** ✅ Operativo y en desarrollo activo
+
+---
+
+⭐ **¡Síguenos para ver el progreso del proyecto!**
