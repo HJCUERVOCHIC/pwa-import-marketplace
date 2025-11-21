@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Plus, Package } from 'lucide-react'
+import { ArrowLeft, Plus, Package, DollarSign, TrendingUp } from 'lucide-react'
 import { supabase } from '../services/supabaseClient'
 import ModalEditorProducto from '../components/ModalEditorProducto'
+import AccionesLista from '../components/AccionesLista'
+import AccionesProducto from '../components/AccionesProducto'
 
 function ProductosPage() {
-  const { id } = useParams() // CORREGIDO: era 'idLista', ahora es 'id'
+  const { id } = useParams()
   const navigate = useNavigate()
   const [lista, setLista] = useState(null)
   const [productos, setProductos] = useState([])
@@ -22,7 +24,7 @@ function ProductosPage() {
       const { data: listaData, error: listaError } = await supabase
         .from('listas_oferta')
         .select('*')
-        .eq('id', id) // CORREGIDO: usa 'id' en lugar de 'idLista'
+        .eq('id', id)
         .single()
 
       if (listaError) throw listaError
@@ -32,7 +34,7 @@ function ProductosPage() {
       const { data: productosData, error: productosError } = await supabase
         .from('productos')
         .select('*')
-        .eq('id_lista', id) // CORREGIDO: usa 'id' en lugar de 'idLista'
+        .eq('id_lista', id)
         .order('created_at', { ascending: false })
 
       if (productosError) throw productosError
@@ -46,174 +48,276 @@ function ProductosPage() {
   }
 
   const handleProductoCreado = (nuevoProducto) => {
-    // Agregar el nuevo producto al inicio del array
     setProductos(prev => [nuevoProducto, ...prev])
   }
 
-  const estadoColors = {
-    borrador: 'bg-yellow-100 text-yellow-800',
-    listo_para_publicar: 'bg-blue-100 text-blue-800',
-    publicado: 'bg-green-100 text-green-800',
-    oculto: 'bg-gray-100 text-gray-800'
+  const handleActualizacion = () => {
+    cargarDatos() // Recargar todo después de cambios de estado
   }
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="text-gray-500">Cargando productos...</div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gold-600"></div>
       </div>
     )
   }
 
   if (!lista) {
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-600">Lista no encontrada</p>
-        <button onClick={() => navigate('/admin/listas')} className="btn-primary mt-4">
-          Volver
+      <div className="empty-state bg-card border border-neutral-border rounded-lg shadow-sm">
+        <div className="empty-state-icon">
+          <Package className="w-16 h-16" />
+        </div>
+        <h3 className="empty-state-title">Lista no encontrada</h3>
+        <p className="empty-state-text">La lista que buscas no existe o fue eliminada</p>
+        <button 
+          onClick={() => navigate('/admin/listas')} 
+          className="btn btn-primary btn-md"
+        >
+          Volver a Listas
         </button>
       </div>
     )
   }
 
+  // Verificar si la lista permite modificaciones
+  const listaModificable = !['cerrada', 'archivada'].includes(lista.estado)
+
   return (
     <div>
-      {/* Header */}
+      {/* Breadcrumb / Back button */}
       <button
-        onClick={() => navigate('/admin/listas')} // CORREGIDO: era '/', ahora es '/admin/listas'
-        className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
+        onClick={() => navigate('/admin/listas')}
+        className="flex items-center gap-2 text-neutral-slate hover:text-gold-600 mb-6 transition-colors duration-base font-medium"
       >
         <ArrowLeft className="w-5 h-5" />
         Volver a Listas
       </button>
 
-      <div className="card mb-6">
-        <div className="flex justify-between items-start">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              {lista.titulo}
-            </h2>
+      {/* Header de la lista */}
+      <div className="card p-6 mb-8 shadow-md">
+        {/* Título y acciones */}
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
+              <h2 className="text-3xl font-display font-bold text-neutral-charcoal">
+                {lista.titulo}
+              </h2>
+              <span className={`badge badge-${lista.estado}`}>
+                {lista.estado}
+              </span>
+            </div>
             {lista.descripcion && (
-              <p className="text-gray-600">{lista.descripcion}</p>
+              <p className="text-neutral-slate">{lista.descripcion}</p>
             )}
           </div>
-          <button 
-            className="btn-primary flex items-center gap-2"
-            onClick={() => setShowModal(true)}
-          >
-            <Plus className="w-5 h-5" />
-            Agregar Producto
-          </button>
+
+          {/* Acciones de la lista */}
+          <div className="flex flex-wrap gap-3">
+            <AccionesLista 
+              lista={lista}
+              onActualizacion={handleActualizacion}
+            />
+            
+            {listaModificable && (
+              <button 
+                className="btn btn-primary btn-md flex items-center gap-2 shadow-md hover:shadow-gold"
+                onClick={() => setShowModal(true)}
+              >
+                <Plus className="w-5 h-5" />
+                Agregar Producto
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-gray-200">
-          <div>
-            <p className="text-sm text-gray-500">TRM</p>
-            <p className="text-lg font-semibold">
+        {/* Warning si la lista está cerrada o archivada */}
+        {!listaModificable && (
+          <div className="bg-yellow-50 border-l-4 border-warning rounded-md p-4 mb-6">
+            <p className="text-sm text-yellow-800">
+              <strong>Nota:</strong> Esta lista está{' '}
+              <span className="font-semibold">{lista.estado}</span> y no se pueden
+              agregar ni modificar productos.
+            </p>
+          </div>
+        )}
+
+        {/* Stats de la lista */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-6 border-t border-neutral-border">
+          <div className="bg-gold-50 rounded-md p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <DollarSign className="w-4 h-4 text-gold-600" />
+              <p className="text-xs text-neutral-stone uppercase tracking-wide font-medium">TRM</p>
+            </div>
+            <p className="text-xl font-display font-bold text-neutral-charcoal">
               ${lista.trm_lista?.toLocaleString('es-CO')}
             </p>
           </div>
-          <div>
-            <p className="text-sm text-gray-500">TAX</p>
-            <p className="text-lg font-semibold">
+
+          <div className="bg-emerald-50 rounded-md p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <TrendingUp className="w-4 h-4 text-emerald-600" />
+              <p className="text-xs text-neutral-stone uppercase tracking-wide font-medium">TAX</p>
+            </div>
+            <p className="text-xl font-display font-bold text-neutral-charcoal">
               {lista.tax_modo_lista === 'porcentaje'
                 ? `${lista.tax_porcentaje_lista}%`
                 : `$${lista.tax_usd_lista} USD`}
             </p>
           </div>
-          <div>
-            <p className="text-sm text-gray-500">Productos</p>
-            <p className="text-lg font-semibold">{productos.length}</p>
+
+          <div className="bg-gold-50 rounded-md p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <Package className="w-4 h-4 text-gold-600" />
+              <p className="text-xs text-neutral-stone uppercase tracking-wide font-medium">Productos</p>
+            </div>
+            <p className="text-xl font-display font-bold text-neutral-charcoal">
+              {productos.length}
+            </p>
           </div>
-          <div>
-            <p className="text-sm text-gray-500">Estado</p>
-            <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${estadoColors[lista.estado]}`}>
-              {lista.estado}
-            </span>
+
+          <div className="bg-neutral-gray rounded-md p-4">
+            <p className="text-xs text-neutral-stone uppercase tracking-wide font-medium mb-1">
+              Publicados
+            </p>
+            <p className="text-xl font-display font-bold text-neutral-charcoal">
+              {productos.filter(p => p.estado === 'publicado').length}
+            </p>
           </div>
         </div>
       </div>
 
       {/* Lista de productos */}
       {productos.length === 0 ? (
-        <div className="card text-center py-12">
-          <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+        <div className="empty-state bg-card border border-neutral-border rounded-lg shadow-sm">
+          <div className="empty-state-icon">
+            <Package className="w-16 h-16" />
+          </div>
+          <h3 className="empty-state-title">
             No hay productos en esta lista
           </h3>
-          <p className="text-gray-600 mb-4">
-            Comienza agregando tu primer producto importado
+          <p className="empty-state-text">
+            Comienza agregando tu primer producto importado a esta lista
           </p>
-          <button 
-            className="btn-primary inline-flex items-center gap-2"
-            onClick={() => setShowModal(true)}
-          >
-            <Plus className="w-5 h-5" />
-            Agregar Primer Producto
-          </button>
+          {listaModificable && (
+            <button 
+              className="btn btn-primary btn-md inline-flex items-center gap-2"
+              onClick={() => setShowModal(true)}
+            >
+              <Plus className="w-5 h-5" />
+              Agregar Primer Producto
+            </button>
+          )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {productos.map((producto) => (
-            <div key={producto.id} className="card hover:shadow-md transition-shadow">
-              {producto.imagenes?.[0] && (
-                <img
-                  src={producto.imagenes[0]}
-                  alt={producto.titulo}
-                  className="w-full h-48 object-cover rounded-lg mb-4"
-                />
-              )}
-              
-              <div className="flex justify-between items-start mb-2">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  {producto.titulo}
-                </h3>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${estadoColors[producto.estado]}`}>
-                  {producto.estado.replace('_', ' ')}
-                </span>
-              </div>
+        <div>
+          {/* Header de productos */}
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-display font-bold text-neutral-charcoal">
+              Productos ({productos.length})
+            </h3>
+          </div>
 
-              {producto.marca && (
-                <p className="text-sm text-gray-500 mb-2">{producto.marca}</p>
-              )}
+          {/* Grid de productos */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {productos.map((producto) => (
+              <div 
+                key={producto.id} 
+                className="card p-0 overflow-hidden hover-lift"
+              >
+                {/* Imagen del producto */}
+                {producto.imagenes?.[0] ? (
+                  <div className="relative w-full h-48 bg-neutral-gray">
+                    <img
+                      src={producto.imagenes[0]}
+                      alt={producto.titulo}
+                      className="w-full h-full object-cover"
+                    />
+                    {/* Badge de estado sobre la imagen */}
+                    <span className={`badge badge-${producto.estado} absolute top-3 right-3 shadow-md`}>
+                      {producto.estado.replace('_', ' ')}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="relative w-full h-48 bg-neutral-gray flex items-center justify-center">
+                    <Package className="w-12 h-12 text-neutral-stone opacity-50" />
+                    <span className={`badge badge-${producto.estado} absolute top-3 right-3 shadow-md`}>
+                      {producto.estado.replace('_', ' ')}
+                    </span>
+                  </div>
+                )}
 
-              <div className="space-y-1 text-sm mt-4">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Precio base:</span>
-                  <span className="font-medium">${producto.precio_base_usd} USD</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Costo total:</span>
-                  <span className="font-medium">
-                    ${producto.costo_total_cop?.toLocaleString('es-CO')} COP
-                  </span>
-                </div>
-                <div className="flex justify-between text-primary-600">
-                  <span className="font-medium">Precio final:</span>
-                  <span className="font-bold">
-                    ${producto.precio_final_cop?.toLocaleString('es-CO')} COP
-                  </span>
-                </div>
-                <div className="flex justify-between text-green-600">
-                  <span>Ganancia:</span>
-                  <span className="font-medium">
-                    ${producto.ganancia_cop?.toLocaleString('es-CO')} COP
-                  </span>
+                {/* Contenido del producto */}
+                <div className="p-5">
+                  {/* Título y marca */}
+                  <div className="mb-3">
+                    <h4 className="text-lg font-display font-semibold text-neutral-charcoal mb-1 line-clamp-2">
+                      {producto.titulo}
+                    </h4>
+                    {producto.marca && (
+                      <p className="text-sm text-neutral-stone font-medium">{producto.marca}</p>
+                    )}
+                  </div>
+
+                  {/* Precios */}
+                  <div className="space-y-2 pt-4 border-t border-neutral-border mb-4">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-neutral-stone">Precio base:</span>
+                      <span className="font-semibold text-neutral-charcoal">
+                        ${producto.precio_base_usd} USD
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-neutral-stone">Costo total:</span>
+                      <span className="font-semibold text-neutral-charcoal">
+                        ${producto.costo_total_cop?.toLocaleString('es-CO')} COP
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center pt-2 border-t border-neutral-border">
+                      <span className="text-sm font-medium text-gold-700">Precio final:</span>
+                      <span className="text-lg font-display font-bold text-gold-600">
+                        ${producto.precio_final_cop?.toLocaleString('es-CO')}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center text-sm bg-emerald-50 -mx-5 px-5 py-2">
+                      <span className="text-emerald-700 font-medium">Ganancia:</span>
+                      <span className="font-bold text-emerald-700">
+                        ${producto.ganancia_cop?.toLocaleString('es-CO')} COP
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Acciones del producto */}
+                  <div className="pt-3 border-t border-neutral-border">
+                    <AccionesProducto
+                      producto={producto}
+                      estadoLista={lista.estado}
+                      onActualizacion={handleActualizacion}
+                      variante="compacto"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
 
       {/* Modal Editor de Producto */}
-      <ModalEditorProducto
-        isOpen={showModal}
-        onClose={() => setShowModal(false)}
-        lista={lista}
-        onProductoCreado={handleProductoCreado}
-      />
+      {listaModificable && (
+        <ModalEditorProducto
+          isOpen={showModal}
+          onClose={() => setShowModal(false)}
+          lista={lista}
+          onProductoCreado={handleProductoCreado}
+        />
+      )}
     </div>
   )
 }
+
 export default ProductosPage

@@ -7,30 +7,15 @@ import Layout from '@/components/Layout'
 import ListasPage from '@/pages/ListasPage'
 import ProductosPage from '@/pages/ProductosPage'
 
-// NUEVAS IMPORTACIONES PARA CATALOGO PUBLICO
-import CatalogoPage from '@/pages/CatalogoPage'
-import CatalogoListaPage from '@/pages/CatalogoListaPage'
-import CatalogoProductoPage from '@/pages/CatalogoProductoPage'
-
 function App() {
   return (
     <AuthProvider>
       <Router>
         <Routes>
-          {/* RUTAS PUBLICAS (SIN AUTENTICACION) */}
-          {/* Ruta raiz redirige al catalogo publico */}
-          <Route path="/" element={<Navigate to="/catalogo" replace />} />
+          {/* Ruta raíz redirige a dashboard */}
+          <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
           
-          {/* Catalogo principal */}
-          <Route path="/catalogo" element={<CatalogoPage />} />
-          
-          {/* Productos de una lista */}
-          <Route path="/catalogo/:id" element={<CatalogoListaPage />} />
-          
-          {/* Detalle de un producto */}
-          <Route path="/catalogo/:id/:idProducto" element={<CatalogoProductoPage />} />
-          
-          {/* Login - accesible sin auth, pero redirige si ya autenticado */}
+          {/* Login - accesible sin auth, pero redirige si ya está autenticado */}
           <Route path="/admin/login" element={<LoginPage />} />
           
           {/* Dashboard - ruta protegida */}
@@ -69,8 +54,8 @@ function App() {
             }
           />
           
-          {/* Ruta 404 - redirige al catalogo publico */}
-          <Route path="*" element={<Navigate to="/catalogo" replace />} />
+          {/* Ruta 404 - redirige a dashboard */}
+          <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
         </Routes>
       </Router>
     </AuthProvider>

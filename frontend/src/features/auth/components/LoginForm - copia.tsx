@@ -2,21 +2,20 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useLogin } from '../hooks/useLogin';
-import { ShoppingBag } from 'lucide-react';
 
 /**
- * Schema de validacion con Zod
+ * Schema de validación con Zod
  */
 const loginSchema = z.object({
   email: z
     .string()
     .min(1, 'El email es requerido')
-    .email('Formato de email invalido'),
+    .email('Formato de email inválido'),
   password: z
     .string()
-    .min(8, 'La contrasena debe tener al menos 8 caracteres'),
+    .min(8, 'La contraseña debe tener al menos 8 caracteres'),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
@@ -95,7 +94,7 @@ export const LoginForm: React.FC = () => {
                 htmlFor="email"
                 className="block text-sm font-medium text-gray-700 mb-1"
               >
-                Correo electronico
+                Correo electrónico
               </label>
               <input
                 {...register('email')}
@@ -120,7 +119,7 @@ export const LoginForm: React.FC = () => {
                 htmlFor="password"
                 className="block text-sm font-medium text-gray-700 mb-1"
               >
-                Contrasena
+                Contraseña
               </label>
               <div className="relative">
                 <input
@@ -211,31 +210,20 @@ export const LoginForm: React.FC = () => {
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                       ></path>
                     </svg>
-                    Iniciando sesion...
+                    Iniciando sesión...
                   </span>
                 ) : (
-                  'Iniciar sesion'
+                  'Iniciar sesión'
                 )}
               </button>
             </div>
           </form>
-
-          {/* NUEVO: Link al catalogo publico */}
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <Link
-              to="/catalogo"
-              className="flex items-center justify-center gap-2 w-full px-4 py-2 text-sm font-medium text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-md transition-colors"
-            >
-              <ShoppingBag className="w-4 h-4" />
-              Ver Catalogo Publico
-            </Link>
-          </div>
         </div>
 
         {/* Footer */}
         <div className="text-center">
           <p className="text-xs text-gray-500">
-            Problemas para acceder?{' '}
+            ¿Problemas para acceder?{' '}
             <a
               href="mailto:soporte@chicimportusa.com"
               className="text-primary-600 hover:text-primary-500"
