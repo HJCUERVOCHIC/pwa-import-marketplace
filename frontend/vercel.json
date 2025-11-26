@@ -4,13 +4,19 @@
   "framework": "vite",
   "rewrites": [
     {
+      "source": "/catalogo/:listId/:productId",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(facebookexternalhit|WhatsApp|Twitterbot|LinkedInBot|Slackbot|TelegramBot|Discordbot).*"
+        }
+      ],
+      "destination": "/api/prerender?url=https://pwa-import-marketplace-3gv5.vercel.app/catalogo/:listId/:productId"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ],
-  "functions": {
-    "api/*.js": {
-      "runtime": "@vercel/node@3"
-    }
-  }
+  ]
 }
