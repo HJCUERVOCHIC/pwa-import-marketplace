@@ -1,15 +1,18 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import { ArrowLeft, Package, ChevronLeft, ChevronRight } from 'lucide-react'
 import PublicLayout from '../components/PublicLayout'
 import { getProductoPublicoById, formatearPrecioCOP } from '../services/catalogoService'
 import BotonCompartirWhatsApp from '../components/BotonCompartirWhatsApp'
-import { compartirProducto } from '../services/whatsappService'
+import { compartirProducto, generarUrlProducto } from '../services/whatsappService'
+import { APP_CONFIG } from '../config/app.config'
 
 /**
  * Página de Detalle de Producto (Catálogo Público)
  * Muestra información completa de un producto publicado
  * Accesible sin autenticación
+ * Session 012: Incluye Open Graph meta tags para WhatsApp rich previews
  */
 function CatalogoProductoPage() {
   const { id: idLista, idProducto } = useParams()
@@ -56,6 +59,57 @@ function CatalogoProductoPage() {
     }
   }
 
+  // Generar meta tags para Open Graph (WhatsApp, Facebook, etc.)
+  const generarMetaTags = () => {
+    if (!producto) return null
+
+    const urlProducto = generarUrlProducto(idLista, idProducto)
+    const imagenProducto = producto.imagenes && producto.imagenes.length > 0 
+      ? producto.imagenes[0] 
+      : `${APP_CONFIG.publicUrl}/default-product-image.jpg`
+    
+    const titulo = producto.titulo
+    const precio = formatearPrecioCOP(producto.precio_final_cop)
+    const descripcion = producto.descripcion 
+      ? producto.descripcion.substring(0, 150) + (producto.descripcion.length > 150 ? '...' : '')
+      : `${producto.marca ? producto.marca + ' - ' : ''}${precio}`
+
+    return (
+      <Helmet>
+        {/* Meta tags básicos */}
+        <title>{titulo} - {APP_CONFIG.siteName}</title>
+        <meta name="description" content={descripcion} />
+        
+        {/* Open Graph meta tags (Facebook, WhatsApp, LinkedIn) */}
+        <meta property="og:type" content="product" />
+        <meta property="og:site_name" content={APP_CONFIG.siteName} />
+        <meta property="og:title" content={titulo} />
+        <meta property="og:description" content={descripcion} />
+        <meta property="og:image" content={imagenProducto} />
+        <meta property="og:url" content={urlProducto} />
+        
+        {/* Dimensiones de imagen recomendadas para WhatsApp */}
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content={titulo} />
+        
+        {/* Meta tags específicos de producto */}
+        <meta property="product:price:amount" content={producto.precio_final_cop} />
+        <meta property="product:price:currency" content="COP" />
+        {producto.marca && <meta property="product:brand" content={producto.marca} />}
+        
+        {/* Twitter Card meta tags */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={titulo} />
+        <meta name="twitter:description" content={descripcion} />
+        <meta name="twitter:image" content={imagenProducto} />
+        
+        {/* Canonical URL */}
+        <link rel="canonical" href={urlProducto} />
+      </Helmet>
+    )
+  }
+
   if (loading) {
     return (
       <PublicLayout>
@@ -69,6 +123,10 @@ function CatalogoProductoPage() {
   if (error || !producto) {
     return (
       <PublicLayout>
+        <Helmet>
+          <title>Producto no disponible - {APP_CONFIG.siteName}</title>
+          <meta name="robots" content="noindex" />
+        </Helmet>
         <div className="empty-state bg-card border border-neutral-border rounded-lg shadow-sm">
           <div className="empty-state-icon">
             <Package className="w-16 h-16 text-danger" />
@@ -92,6 +150,9 @@ function CatalogoProductoPage() {
 
   return (
     <PublicLayout>
+      {/* Meta tags para Open Graph */}
+      {generarMetaTags()}
+
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm mb-6">
         <button

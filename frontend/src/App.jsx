@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { HelmetProvider } from 'react-helmet-async'
 import { AuthProvider } from '@/features/auth/context/AuthContext'
 import ProtectedRoute from '@/features/auth/components/ProtectedRoute'
 import LoginPage from '@/pages/auth/LoginPage'
@@ -14,66 +15,68 @@ import CatalogoProductoPage from '@/pages/CatalogoProductoPage'
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
-          {/* RUTAS PUBLICAS (SIN AUTENTICACION) */}
-          {/* Ruta raiz redirige al catalogo publico */}
-          <Route path="/" element={<Navigate to="/catalogo" replace />} />
-          
-          {/* Catalogo principal */}
-          <Route path="/catalogo" element={<CatalogoPage />} />
-          
-          {/* Productos de una lista */}
-          <Route path="/catalogo/:id" element={<CatalogoListaPage />} />
-          
-          {/* Detalle de un producto */}
-          <Route path="/catalogo/:id/:idProducto" element={<CatalogoProductoPage />} />
-          
-          {/* Login - accesible sin auth, pero redirige si ya autenticado */}
-          <Route path="/admin/login" element={<LoginPage />} />
-          
-          {/* Dashboard - ruta protegida */}
-          <Route
-            path="/admin/dashboard"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <DashboardPage />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          
-          {/* Listas - ruta protegida */}
-          <Route
-            path="/admin/listas"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <ListasPage />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          
-          {/* Productos de una lista - ruta protegida */}
-          <Route
-            path="/admin/listas/:id/productos"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <ProductosPage />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          
-          {/* Ruta 404 - redirige al catalogo publico */}
-          <Route path="*" element={<Navigate to="/catalogo" replace />} />
-        </Routes>
-      </Router>
-    </AuthProvider>
+    <HelmetProvider>
+      <AuthProvider>
+        <Router>
+          <Routes>
+            {/* RUTAS PUBLICAS (SIN AUTENTICACION) */}
+            {/* Ruta raiz redirige al catalogo publico */}
+            <Route path="/" element={<Navigate to="/catalogo" replace />} />
+            
+            {/* Catalogo principal */}
+            <Route path="/catalogo" element={<CatalogoPage />} />
+            
+            {/* Productos de una lista */}
+            <Route path="/catalogo/:id" element={<CatalogoListaPage />} />
+            
+            {/* Detalle de un producto */}
+            <Route path="/catalogo/:id/:idProducto" element={<CatalogoProductoPage />} />
+            
+            {/* Login - accesible sin auth, pero redirige si ya autenticado */}
+            <Route path="/admin/login" element={<LoginPage />} />
+            
+            {/* Dashboard - ruta protegida */}
+            <Route
+              path="/admin/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <DashboardPage />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            
+            {/* Listas - ruta protegida */}
+            <Route
+              path="/admin/listas"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <ListasPage />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            
+            {/* Productos de una lista - ruta protegida */}
+            <Route
+              path="/admin/listas/:id/productos"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <ProductosPage />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            
+            {/* Ruta 404 - redirige al catalogo publico */}
+            <Route path="*" element={<Navigate to="/catalogo" replace />} />
+          </Routes>
+        </Router>
+      </AuthProvider>
+    </HelmetProvider>
   )
 }
 
