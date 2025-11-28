@@ -107,7 +107,12 @@ export default async function ProductoPage({ params }) {
                 </div>
               )}
 
-              <a href="https://wa.me/" target="_blank" rel="noopener noreferrer" className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-lg flex items-center justify-center gap-2 transition-colors">
+              <a 
+                href={`https://wa.me/?text=${encodeURIComponent(`¡Mira este producto!\n\n*${producto.titulo}*\n${producto.marca ? `Marca: ${producto.marca}\n` : ''}Precio: ${precio}\n\nhttps://pwa-import-marketplace-jx2h.vercel.app/catalogo/${idLista}/${idProducto}`)}`}
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-lg flex items-center justify-center gap-2 transition-colors"
+              >
                 Compartir por WhatsApp
               </a>
             </div>
