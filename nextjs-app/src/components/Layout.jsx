@@ -1,0 +1,160 @@
+import { Package, LayoutDashboard, List, ShoppingBag } from 'lucide-react'
+import { Link, useLocation } from 'react-router-dom'
+import { useAuth } from '@/features/auth/context/AuthContext'
+import { LogoutButton } from '@/features/auth/components/LogoutButton'
+
+function Layout({ children }) {
+  const location = useLocation()
+  const { profile } = useAuth()
+  
+  const isActive = (path) => location.pathname === path
+
+  const navItems = [
+    {
+      name: 'Dashboard',
+      path: '/admin/dashboard',
+      icon: LayoutDashboard
+    },
+    {
+      name: 'Listas',
+      path: '/admin/listas',
+      icon: List
+    }
+  ]
+
+  // Obtener iniciales del nombre
+  const getInitials = (name) => {
+    if (!name) return 'U'
+    const names = name.split(' ')
+    if (names.length === 1) return names[0].charAt(0).toUpperCase()
+    return (names[0].charAt(0) + names[names.length - 1].charAt(0)).toUpperCase()
+  }
+
+  return (
+    <div className="min-h-screen bg-app">
+      {/* Header con navegación */}
+      <header className="bg-card shadow-sm border-b border-neutral-border sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            {/* Logo y título */}
+            <div className="flex items-center gap-3">
+              <div className="bg-gold-100 p-2 rounded-md">
+                <Package className="w-6 h-6 text-gold-600" />
+              </div>
+              <div>
+                <h1 className="text-lg font-display font-bold text-neutral-charcoal">
+                  Chic Import USA
+                </h1>
+                <p className="text-xs text-neutral-stone">Admin Panel</p>
+              </div>
+            </div>
+
+            {/* Navegación principal */}
+            <nav className="hidden md:flex items-center gap-1">
+              {navItems.map((item) => {
+                const Icon = item.icon
+                const active = isActive(item.path)
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`
+                      flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium 
+                      transition-all duration-base
+                      ${active 
+                        ? 'bg-gold-100 text-gold-700 shadow-sm' 
+                        : 'text-neutral-slate hover:bg-gold-50 hover:text-neutral-charcoal'
+                      }
+                    `}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {item.name}
+                  </Link>
+                )
+              })}
+
+              {/* NUEVO: Boton Ver Catalogo */}
+              <Link
+                to="/catalogo"
+                className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 border border-emerald-200"
+              >
+                <ShoppingBag className="w-4 h-4" />
+                Ver Catalogo
+              </Link>
+            </nav>
+
+            {/* Usuario y logout */}
+            <div className="flex items-center gap-3">
+              {/* Info de usuario - hidden en mobile */}
+              <div className="hidden sm:flex items-center gap-3">
+                <div className="text-right">
+                  <p className="text-sm font-medium text-neutral-charcoal">
+                    {profile?.nombre || 'Usuario'}
+                  </p>
+                  <p className="text-xs text-neutral-stone capitalize">
+                    {profile?.role || 'admin'}
+                  </p>
+                </div>
+                {/* Avatar */}
+                <div className="w-10 h-10 rounded-full bg-gold-400 text-white flex items-center justify-center font-semibold text-sm shadow-sm">
+                  {getInitials(profile?.nombre)}
+                </div>
+              </div>
+              
+              {/* Logout button */}
+              <LogoutButton variant="ghost" size="sm" />
+            </div>
+          </div>
+
+          {/* Navegación mobile */}
+          <div className="md:hidden pb-3 flex gap-2">
+            {navItems.map((item) => {
+              const Icon = item.icon
+              const active = isActive(item.path)
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`
+                    flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium
+                    transition-all duration-base
+                    ${active 
+                      ? 'bg-gold-100 text-gold-700' 
+                      : 'text-neutral-slate hover:bg-gold-50'
+                    }
+                  `}
+                >
+                  <Icon className="w-4 h-4" />
+                  {item.name}
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {children}
+      </main>
+
+      {/* Footer */}
+      <footer className="bg-card border-t border-neutral-border mt-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+            <p className="text-sm text-neutral-stone">
+              © 2025 <span className="font-semibold text-gold-600">Chic Import USA</span>. All rights reserved.
+            </p>
+            <div className="flex gap-6 text-sm text-neutral-stone">
+              <a href="#" className="hover:text-gold-600 transition-colors">Soporte</a>
+              <a href="#" className="hover:text-gold-600 transition-colors">Documentación</a>
+              <a href="#" className="hover:text-gold-600 transition-colors">Privacidad</a>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </div>
+  )
+}
+
+export default Layout

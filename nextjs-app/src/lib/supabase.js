@@ -4,12 +4,25 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Variables de Supabase:')
-  console.error('URL:', supabaseUrl)
-  console.error('KEY:', supabaseAnonKey ? 'Definida' : 'No definida')
+  console.error('Missing Supabase environment variables')
 }
 
 export const supabase = createClient(
   supabaseUrl || '',
-  supabaseAnonKey || ''
+  supabaseAnonKey || '',
+  {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+    },
+  }
 )
+
+export const AUTH_CONFIG = {
+  SESSION_TIMEOUT: 86400000,
+  MAX_LOGIN_ATTEMPTS: 5,
+  LOCKOUT_DURATION: 10 * 60 * 1000,
+}
+
+export default supabase
