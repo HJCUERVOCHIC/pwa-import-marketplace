@@ -12,7 +12,7 @@ export async function generateMetadata({ params }) {
   }
 
   const precio = formatearPrecioCOP(producto.precio_final_cop)
-  const imagen = producto.imagenes?.[0] || 'https://pwa-import-marketplace-3gv5.vercel.app/og-image.jpg'
+  const imagen = producto.imagenes?.[0] || 'https://pwa-import-marketplace.vercel.app/og-image.jpg'
   const descripcion = producto.descripcion 
     ? producto.descripcion.substring(0, 150) 
     : `${producto.marca ? producto.marca + ' - ' : ''}${precio}`
@@ -108,7 +108,7 @@ export default async function ProductoPage({ params }) {
               )}
 
               <a 
-                href={`https://wa.me/?text=${encodeURIComponent(`¡Mira este producto!\n\n*${producto.titulo}*\n${producto.marca ? `Marca: ${producto.marca}\n` : ''}Precio: ${precio}\n\nhttps://pwa-import-marketplace-jx2h.vercel.app/catalogo/${idLista}/${idProducto}`)}`}
+                href={`https://wa.me/?text=${encodeURIComponent(`¡Mira este producto!\n\n*${producto.titulo}*\n${producto.marca ? `Marca: ${producto.marca}\n` : ''}Precio: ${precio}\n\nhttps://pwa-import-marketplace.vercel.app/catalogo/${idLista}/${idProducto}`)}`}
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-lg flex items-center justify-center gap-2 transition-colors"
