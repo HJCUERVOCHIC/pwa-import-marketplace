@@ -1,26 +1,787 @@
+/* ===========================================
+   CHIC IMPORT USA - Global Styles
+   Sistema de Diseño Oficial v2.0
+   Paleta: Azul Elegante + Midnight + Dorado
+   =========================================== */
+
 @import "tailwindcss";
 
+/* ===========================================
+   CSS VARIABLES - Tokens de Diseño
+   =========================================== */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Brand Colors - Solo para logo y precios */
+  --color-brand-primary: #D4AF37;
+  --color-brand-primary-dark: #B8952A;
+  --color-brand-primary-soft: #F2E6C6;
+  
+  /* Azul Elegante - Color principal para acciones */
+  --color-blue-elegant: #1e40af;
+  --color-blue-elegant-dark: #1e3a8a;
+  --color-blue-elegant-light: #dbeafe;
+  --color-blue-accent: #3b82f6;
+  
+  /* Midnight Blue - Para dashboard y elementos destacados */
+  --color-midnight-primary: #0f172a;
+  --color-midnight-secondary: #1e3a8a;
+  --color-midnight-light: #3b82f6;
+  --color-midnight-lighter: #60a5fa;
+  
+  /* Verde - SOLO para feedback de éxito */
+  --color-success: #3FA27B;
+  --color-success-light: #E8F5EF;
+  
+  /* Neutrals */
+  --color-ivory: #F5F1E8;
+  --color-white: #FFFFFF;
+  --color-black: #1A1A1A;
+  --color-gray-strong: #4A4A4A;
+  --color-gray-soft: #7A7A7A;
+  --color-gray-border: #D6D0C3;
+  --color-gray-bg: #F3F3F3;
+  
+  /* States */
+  --color-hover-primary: #1e3a8a;
+  --color-active-primary: #1e3a8a;
+  --color-disabled-bg: #E0E0E0;
+  --color-disabled-fg: #A5A5A5;
+  --color-focus-ring: rgba(30, 64, 175, 0.25);
+  
+  /* Feedback */
+  --color-warning: #E6B800;
+  --color-error: #C24747;
+  --color-error-soft: #B85C5C;
+  --color-info: #4A90E2;
+  
+  /* Typography */
+  --font-display: 'Cormorant Garamond', Georgia, serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 30px rgba(0, 0, 0, 0.12);
+  --shadow-gold: 0 4px 14px rgba(212, 175, 55, 0.25);
+  --shadow-blue: 0 4px 12px rgba(30, 64, 175, 0.25);
+  --shadow-midnight: 0 10px 40px rgba(15, 23, 42, 0.5);
+  
+  /* Border Radius */
+  --radius-chic: 10px;
+  --radius-chic-sm: 8px;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ===========================================
+   BASE STYLES
+   =========================================== */
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body);
+  background-color: var(--color-ivory);
+  color: var(--color-gray-strong);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Títulos con fuente display */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  color: var(--color-black);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+h1 { font-size: 2.5rem; }
+h2 { font-size: 2rem; }
+h3 { font-size: 1.5rem; }
+h4 { font-size: 1.25rem; }
+
+/* Links - Azul Elegante */
+a {
+  color: var(--color-blue-elegant);
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: var(--color-blue-elegant-dark);
+}
+
+/* Focus visible para accesibilidad */
+:focus-visible {
+  outline: 2px solid var(--color-blue-elegant);
+  outline-offset: 2px;
+}
+
+/* ===========================================
+   COMPONENTES - Botones (Azul Elegante)
+   =========================================== */
+
+/* Botón Primario - Azul Elegante */
+.btn-primary {
+  padding: 0.75rem 1.5rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  background-color: var(--color-blue-elegant);
+  color: var(--color-white);
+  border-radius: var(--radius-chic);
+  box-shadow: var(--shadow-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  background-color: var(--color-blue-elegant-dark);
+  box-shadow: var(--shadow-blue);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  background-color: #172554;
+  transform: translateY(0);
+}
+
+.btn-primary:disabled {
+  background-color: var(--color-disabled-bg);
+  color: var(--color-disabled-fg);
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Botón Secundario - Borde gris neutro */
+.btn-secondary {
+  padding: 0.75rem 1.5rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  background-color: transparent;
+  color: var(--color-gray-strong);
+  border: 1.5px solid var(--color-gray-border);
+  border-radius: var(--radius-chic);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  border-color: var(--color-gray-soft);
+  background-color: var(--color-gray-bg);
+}
+
+.btn-secondary:active {
+  background-color: var(--color-gray-border);
+}
+
+/* Botón Ghost - Texto rojo suave para acciones destructivas */
+.btn-ghost {
+  padding: 0.75rem 1.5rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  background-color: transparent;
+  color: var(--color-error-soft);
+  border-radius: var(--radius-chic);
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-ghost:hover {
+  background-color: #FEF2F2;
+  color: var(--color-error);
+}
+
+/* Botón Dorado - SOLO para catálogo público y precios */
+.btn-gold {
+  padding: 0.75rem 1.5rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  background-color: var(--color-brand-primary);
+  color: var(--color-black);
+  border-radius: var(--radius-chic);
+  box-shadow: var(--shadow-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-gold:hover {
+  background-color: var(--color-brand-primary-dark);
+  box-shadow: var(--shadow-gold);
+  transform: translateY(-1px);
+}
+
+/* Botón Midnight - Para acciones destacadas del dashboard */
+.btn-midnight {
+  padding: 0.75rem 1.5rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  background: linear-gradient(135deg, var(--color-midnight-primary), var(--color-midnight-secondary));
+  color: var(--color-white);
+  border-radius: var(--radius-chic);
+  box-shadow: var(--shadow-midnight);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-midnight:hover {
+  box-shadow: 0 12px 50px rgba(15, 23, 42, 0.6);
+  transform: translateY(-1px);
+}
+
+/* Botón WhatsApp */
+.btn-whatsapp {
+  padding: 0.75rem 1.5rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  background-color: #25D366;
+  color: white;
+  border-radius: var(--radius-chic);
+  box-shadow: var(--shadow-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn-whatsapp:hover {
+  background-color: #20BA5C;
+  box-shadow: 0 4px 14px rgba(37, 211, 102, 0.3);
+  transform: translateY(-1px);
+  color: white;
+}
+
+/* Botón Outline Azul */
+.btn-outline-blue {
+  padding: 0.75rem 1.5rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  background-color: transparent;
+  color: var(--color-blue-elegant);
+  border: 1.5px solid var(--color-blue-elegant);
+  border-radius: var(--radius-chic);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.btn-outline-blue:hover {
+  background-color: var(--color-blue-elegant);
+  color: var(--color-white);
+}
+
+/* ===========================================
+   COMPONENTES - Cards
+   =========================================== */
+.card-premium {
+  background-color: var(--color-white);
+  border: 1px solid var(--color-gray-border);
+  border-radius: var(--radius-chic);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.3s ease;
+}
+
+.card-premium:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.card-gold {
+  background-color: var(--color-white);
+  border: 1.5px solid var(--color-brand-primary-soft);
+  border-radius: var(--radius-chic);
+  box-shadow: var(--shadow-sm);
+}
+
+.card-midnight {
+  background: linear-gradient(135deg, var(--color-midnight-primary), var(--color-midnight-secondary));
+  border-radius: 16px;
+  box-shadow: var(--shadow-midnight);
+  color: white;
+  position: relative;
+  overflow: hidden;
+}
+
+.card-midnight::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -30%;
+  width: 200px;
+  height: 200px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 50%;
+}
+
+/* ===========================================
+   COMPONENTES - Acciones Rápidas (Cards)
+   =========================================== */
+.action-item {
+  background-color: var(--color-white);
+  border: 1px solid var(--color-gray-border);
+  border-radius: var(--radius-chic);
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  color: inherit;
+}
+
+.action-item:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-blue-elegant-light);
+}
+
+.action-item:hover .action-icon {
+  background-color: var(--color-blue-elegant);
+}
+
+.action-item:hover .action-icon svg {
+  color: white;
+}
+
+.action-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-chic-sm);
+  background-color: var(--color-blue-elegant-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.action-icon svg {
+  color: var(--color-blue-elegant);
+  transition: color 0.2s ease;
+}
+
+/* Variantes de color para iconos */
+.action-icon.success {
+  background-color: var(--color-success-light);
+}
+
+.action-icon.success svg {
+  color: var(--color-success);
+}
+
+.action-item:hover .action-icon.success {
+  background-color: var(--color-success);
+}
+
+.action-icon.warning {
+  background-color: #FFF8E1;
+}
+
+.action-icon.warning svg {
+  color: #B8860B;
+}
+
+.action-item:hover .action-icon.warning {
+  background-color: #B8860B;
+}
+
+.action-icon.danger {
+  background-color: #FEF2F2;
+}
+
+.action-icon.danger svg {
+  color: var(--color-error-soft);
+}
+
+.action-item:hover .action-icon.danger {
+  background-color: var(--color-error-soft);
+}
+
+.action-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.action-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-black);
+}
+
+.action-subtitle {
+  font-size: 0.7rem;
+  color: var(--color-gray-soft);
+}
+
+/* Variante compacta */
+.action-item.compact {
+  padding: 0.6rem 0.85rem;
+}
+
+.action-item.compact .action-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.action-item.compact .action-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.action-item.compact .action-title {
+  font-size: 0.8rem;
+}
+
+/* ===========================================
+   COMPONENTES - Inputs
+   =========================================== */
+.input-chic {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  background-color: var(--color-white);
+  border: 1.5px solid var(--color-gray-border);
+  border-radius: var(--radius-chic-sm);
+  color: var(--color-gray-strong);
+  min-height: 44px;
+}
+
+.input-chic::placeholder {
+  color: var(--color-gray-soft);
+}
+
+.input-chic:focus {
+  border-color: var(--color-blue-elegant);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+  outline: none;
+}
+
+.input-chic:disabled {
+  background-color: var(--color-disabled-bg);
+  cursor: not-allowed;
+}
+
+/* ===========================================
+   COMPONENTES - Badges
+   =========================================== */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: 9999px;
+}
+
+/* Badge azul (principal en admin) */
+.badge-blue {
+  background-color: var(--color-blue-elegant-light);
+  color: var(--color-blue-elegant);
+}
+
+/* Badge dorado - SOLO para catálogo público */
+.badge-gold {
+  background-color: var(--color-brand-primary-soft);
+  color: var(--color-brand-primary-dark);
+  border: 1px solid var(--color-brand-primary);
+}
+
+/* Badge midnight con dorado */
+.badge-midnight-gold {
+  background: linear-gradient(135deg, var(--color-brand-primary), #f4d03f);
+  color: var(--color-midnight-primary);
+  font-weight: 600;
+  box-shadow: 0 4px 15px rgba(212, 175, 55, 0.5);
+}
+
+/* Badge verde SOLO para estados de éxito */
+.badge-success {
+  background-color: var(--color-success-light);
+  color: var(--color-success);
+}
+
+.badge-warning {
+  background-color: #FFF8E1;
+  color: #B8860B;
+}
+
+.badge-error {
+  background-color: #FDEAEA;
+  color: var(--color-error);
+}
+
+.badge-neutral {
+  background-color: var(--color-gray-bg);
+  color: var(--color-gray-strong);
+}
+
+/* ===========================================
+   COMPONENTES - Precios (Mantiene dorado)
+   =========================================== */
+.price-gold {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--color-brand-primary);
+}
+
+.price-gold-lg {
+  font-size: 1.875rem;
+}
+
+.price-gold-xl {
+  font-size: 2.25rem;
+}
+
+/* Texto con gradiente dorado */
+.text-gradient-gold {
+  background: linear-gradient(135deg, var(--color-brand-primary), #f4d03f);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ===========================================
+   COMPONENTES - Navbar
+   =========================================== */
+.navbar-chic {
+  background-color: var(--color-white);
+  border-bottom: 1px solid var(--color-gray-border);
+}
+
+.nav-link {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: color 0.2s ease;
+  color: var(--color-gray-strong);
+  text-decoration: none;
+  position: relative;
+}
+
+.nav-link:hover {
+  color: var(--color-black);
+}
+
+.nav-link.active {
+  color: var(--color-blue-elegant);
+  font-weight: 600;
+}
+
+.nav-link.active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 70%;
+  height: 2px;
+  background-color: var(--color-blue-elegant);
+  border-radius: 1px;
+}
+
+/* ===========================================
+   COMPONENTES - Header de Página
+   =========================================== */
+.page-header {
+  background-color: var(--color-white);
+  border-bottom: 1px solid var(--color-gray-border);
+}
+
+/* Gradient dorado - SOLO para catálogo público */
+.gradient-gold {
+  background: linear-gradient(135deg, var(--color-brand-primary-soft) 0%, var(--color-white) 100%);
+}
+
+/* Gradient midnight */
+.gradient-midnight {
+  background: linear-gradient(135deg, var(--color-midnight-primary) 0%, var(--color-midnight-secondary) 100%);
+}
+
+/* ===========================================
+   COMPONENTES - Footer
+   =========================================== */
+.footer-chic {
+  background-color: var(--color-ivory);
+  border-top: 1px solid var(--color-gray-border);
+}
+
+.footer-text {
+  color: var(--color-gray-soft);
+  font-size: 0.875rem;
+}
+
+/* ===========================================
+   UTILIDADES
+   =========================================== */
+.text-display {
+  font-family: var(--font-display);
+}
+
+.text-body {
+  font-family: var(--font-body);
+}
+
+.text-blue-elegant {
+  color: var(--color-blue-elegant);
+}
+
+.bg-ivory {
+  background-color: var(--color-ivory);
+}
+
+.bg-white {
+  background-color: var(--color-white);
+}
+
+.bg-blue-light {
+  background-color: var(--color-blue-elegant-light);
+}
+
+.border-gold {
+  border-color: var(--color-brand-primary);
+}
+
+.border-gold-soft {
+  border-color: var(--color-brand-primary-soft);
+}
+
+.border-blue {
+  border-color: var(--color-blue-elegant);
+}
+
+/* Divider (neutro) */
+.divider {
+  height: 1px;
+  background: var(--color-gray-border);
+}
+
+/* Divider dorado - SOLO para catálogo público */
+.divider-gold {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--color-brand-primary), transparent);
+}
+
+/* Line clamp utilities */
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ===========================================
+   ANIMACIONES
+   =========================================== */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.5s ease-out forwards;
+}
+
+/* Stagger animations para listas */
+.stagger-item {
+  opacity: 0;
+  animation: fadeInUp 0.4s ease-out forwards;
+}
+
+.stagger-item:nth-child(1) { animation-delay: 0.1s; }
+.stagger-item:nth-child(2) { animation-delay: 0.15s; }
+.stagger-item:nth-child(3) { animation-delay: 0.2s; }
+.stagger-item:nth-child(4) { animation-delay: 0.25s; }
+.stagger-item:nth-child(5) { animation-delay: 0.3s; }
+.stagger-item:nth-child(6) { animation-delay: 0.35s; }
+
+/* ===========================================
+   RESPONSIVE
+   =========================================== */
+@media (max-width: 768px) {
+  h1 { font-size: 2rem; }
+  h2 { font-size: 1.5rem; }
+  h3 { font-size: 1.25rem; }
+  
+  .btn-primary,
+  .btn-secondary,
+  .btn-ghost,
+  .btn-whatsapp,
+  .btn-gold,
+  .btn-midnight {
+    padding: 0.625rem 1rem;
+  }
+}
+
+/* ===========================================
+   SCROLLBAR PERSONALIZADA
+   =========================================== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-gray-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-gray-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gray-soft);
+}
+
+/* ===========================================
+   SELECTION
+   =========================================== */
+::selection {
+  background-color: var(--color-blue-elegant-light);
+  color: var(--color-black);
 }

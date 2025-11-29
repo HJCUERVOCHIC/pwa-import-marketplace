@@ -2,21 +2,20 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
+import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 
-export default function LoginPage() {
+export default function AuthPage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
 
-  const handleSubmit = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault()
-    setIsLoading(true)
-    setError('')
+    setLoading(true)
+    setError(null)
 
     try {
       const { data, error: authError } = await supabase.auth.signInWithPassword({
@@ -24,99 +23,158 @@ export default function LoginPage() {
         password,
       })
 
-      if (authError) {
-        setError('Correo o contraseña incorrectos')
-        return
-      }
+      if (authError) throw authError
 
-      if (data.session) {
-        router.push('/admin')
-      }
+      router.push('/admin')
     } catch (err) {
-      setError('Error al conectar con el servidor')
+      setError(err.message === 'Invalid login credentials' 
+        ? 'Credenciales inválidas. Verifica tu email y contraseña.'
+        : err.message)
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div className="text-center">
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            Chicimportusa Admin
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Ingresa tus credenciales para acceder al panel administrativo
-          </p>
-        </div>
+    <div className="min-h-screen bg-neutrals-ivory flex flex-col">
+      {/* Background decorativo */}
+      <div 
+        className="absolute top-0 left-0 right-0 h-72"
+        style={{
+          background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)',
+        }}
+      >
+        {/* Círculos decorativos */}
+        <div 
+          className="absolute top-10 right-10 w-32 h-32 rounded-full opacity-10"
+          style={{ background: 'white' }}
+        />
+        <div 
+          className="absolute bottom-0 left-20 w-48 h-48 rounded-full opacity-5"
+          style={{ background: 'white' }}
+        />
+      </div>
 
-        <div className="bg-white shadow rounded-lg px-8 py-10">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <div className="rounded-md bg-red-50 p-4 border border-red-200">
-                <p className="text-sm font-medium text-red-800">{error}</p>
+      {/* Content */}
+      <div className="relative flex-1 flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md">
+          {/* Card */}
+          <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+            {/* Header con logo */}
+            <div className="text-center pt-10 pb-6 px-8">
+              <div className="flex justify-center mb-4">
+                <div className="relative">
+                  <Image
+                    src="/logo.jpg"
+                    alt="Chic Import USA"
+                    width={80}
+                    height={80}
+                    className="rounded-full shadow-lg"
+                    style={{
+                      boxShadow: '0 8px 30px rgba(212, 175, 55, 0.3)'
+                    }}
+                    priority
+                  />
+                </div>
               </div>
-            )}
-
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                Correo electronico
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                placeholder="admin@chicimportusa.com"
-              />
+              <h1 className="font-display text-2xl font-semibold text-neutrals-black">
+                Chic Import USA
+              </h1>
+              <p className="text-neutrals-graySoft text-sm mt-1">
+                Panel de Administración
+              </p>
             </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                Contraseña
-              </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm pr-10"
-                  placeholder="••••••••"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
-                >
-                  {showPassword ? '🙈' : '👁️'}
-                </button>
-              </div>
+            {/* Divider */}
+            <div className="px-8">
+              <div className="h-px bg-gradient-to-r from-transparent via-neutrals-grayBorder to-transparent" />
             </div>
 
-            <div>
+            {/* Form */}
+            <form onSubmit={handleLogin} className="p-8 pt-6">
+              <div className="space-y-5">
+                <div>
+                  <label 
+                    htmlFor="email" 
+                    className="block text-sm font-medium text-neutrals-grayStrong mb-2"
+                  >
+                    Correo electrónico
+                  </label>
+                  <input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="input-chic"
+                    placeholder="tu@email.com"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label 
+                    htmlFor="password" 
+                    className="block text-sm font-medium text-neutrals-grayStrong mb-2"
+                  >
+                    Contraseña
+                  </label>
+                  <input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="input-chic"
+                    placeholder="••••••••"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Error message */}
+              {error && (
+                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-600 flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {error}
+                  </p>
+                </div>
+              )}
+
+              {/* Submit button */}
               <button
                 type="submit"
-                disabled={isLoading}
-                className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                disabled={loading}
+                className="btn-primary w-full mt-6"
+                style={{
+                  background: loading ? '#E0E0E0' : 'linear-gradient(135deg, #1e40af, #1e3a8a)',
+                }}
               >
-                {isLoading ? 'Iniciando sesion...' : 'Iniciar sesion'}
+                {loading ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Ingresando...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                    </svg>
+                    Ingresar
+                  </>
+                )}
               </button>
-            </div>
-          </form>
-
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <Link
-              href="/catalogo"
-              className="flex items-center justify-center gap-2 w-full px-4 py-2 text-sm font-medium text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-md transition-colors"
-            >
-              Ver Catalogo Publico
-            </Link>
+            </form>
           </div>
+
+          {/* Footer */}
+          <p className="text-center text-xs text-neutrals-graySoft mt-6">
+            © 2025 Chic Import USA. Todos los derechos reservados.
+          </p>
         </div>
       </div>
     </div>

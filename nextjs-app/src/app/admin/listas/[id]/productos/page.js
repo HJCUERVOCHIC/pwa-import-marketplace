@@ -3,25 +3,51 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 
+// Componente Logo reutilizable
+const LogoChic = ({ size = 'md', className = '' }) => {
+  const sizes = {
+    sm: { width: 32, height: 32 },
+    md: { width: 40, height: 40 },
+    lg: { width: 80, height: 80 },
+    xl: { width: 120, height: 120 }
+  }
+  
+  const { width, height } = sizes[size] || sizes.md
+  
+  return (
+    <Image
+      src="/logo.jpg"
+      alt="Chic Import USA"
+      width={width}
+      height={height}
+      className={`rounded-full shadow-lg ${className}`}
+      priority
+    />
+  )
+}
+
 const CATEGORIAS = [
-  { value: 'calzado', label: 'Calzado' },
-  { value: 'ropa', label: 'Ropa' },
-  { value: 'tecnologia', label: 'Tecnologia' },
-  { value: 'hogar', label: 'Hogar' },
-  { value: 'deportes', label: 'Deportes' },
-  { value: 'belleza', label: 'Belleza' },
-  { value: 'juguetes', label: 'Juguetes' },
-  { value: 'otros', label: 'Otros' }
+  { value: 'calzado', label: 'Calzado', icon: '👟' },
+  { value: 'ropa', label: 'Ropa', icon: '👕' },
+  { value: 'tecnologia', label: 'Tecnología', icon: '📱' },
+  { value: 'hogar', label: 'Hogar', icon: '🏠' },
+  { value: 'deportes', label: 'Deportes', icon: '⚽' },
+  { value: 'belleza', label: 'Belleza', icon: '💄' },
+  { value: 'juguetes', label: 'Juguetes', icon: '🧸' },
+  { value: 'otros', label: 'Otros', icon: '📦' }
 ]
 
 const ESTADOS_PRODUCTO = {
-  borrador: { label: 'Borrador', color: 'bg-yellow-100 text-yellow-800' },
-  listo_para_publicar: { label: 'Listo', color: 'bg-blue-100 text-blue-800' },
-  publicado: { label: 'Publicado', color: 'bg-green-100 text-green-800' },
-  oculto: { label: 'Oculto', color: 'bg-gray-100 text-gray-800' }
+  borrador: { label: 'Borrador', class: 'badge-warning', icon: '📝' },
+  listo_para_publicar: { label: 'Listo', class: 'badge-blue', icon: '✅' },
+  publicado: { label: 'Publicado', class: 'badge-success', icon: '🌐' },
+  oculto: { label: 'Oculto', class: 'badge-neutral', icon: '👁️‍🗨️' }
 }
+
+const ITEMS_PER_PAGE = 8
 
 export default function ProductosPage() {
   const router = useRouter()
@@ -38,10 +64,20 @@ export default function ProductosPage() {
   const [imagenesPreview, setImagenesPreview] = useState([])
   const [uploadingImages, setUploadingImages] = useState(false)
 
+  // Estados para filtro y paginación
+  const [estadoFiltro, setEstadoFiltro] = useState('todos')
+  const [showAll, setShowAll] = useState(false)
+  const [totalPorEstado, setTotalPorEstado] = useState({
+    borrador: 0,
+    listo_para_publicar: 0,
+    publicado: 0,
+    oculto: 0
+  })
+
   const [formData, setFormData] = useState({
     titulo: '',
     marca: '',
-    categoria: 'tecnologia',
+    categoria: 'calzado',
     descripcion: '',
     imagenes: [],
     precio_base_usd: '',
@@ -53,9 +89,16 @@ export default function ProductosPage() {
   useEffect(() => {
     if (idLista) {
       checkAuth()
-      cargarDatos()
+      cargarLista()
     }
   }, [idLista])
+
+  useEffect(() => {
+    if (lista) {
+      cargarProductos()
+      cargarTotalesPorEstado()
+    }
+  }, [lista, estadoFiltro])
 
   useEffect(() => {
     if (formData.precio_base_usd && lista) {
@@ -70,7 +113,7 @@ export default function ProductosPage() {
     }
   }
 
-  const cargarDatos = async () => {
+  const cargarLista = async () => {
     try {
       const { data: listaData, error: listaError } = await supabase
         .from('listas_oferta')
@@ -80,67 +123,103 @@ export default function ProductosPage() {
 
       if (listaError) throw listaError
       setLista(listaData)
+    } catch (error) {
+      console.error('Error cargando lista:', error)
+    }
+  }
 
-      const { data: productosData, error: productosError } = await supabase
+  const cargarProductos = async () => {
+    setLoading(true)
+    try {
+      let query = supabase
         .from('productos')
         .select('*')
         .eq('id_lista', idLista)
         .order('created_at', { ascending: false })
 
+      if (estadoFiltro !== 'todos') {
+        query = query.eq('estado', estadoFiltro)
+      }
+
+      const { data: productosData, error: productosError } = await query
+
       if (productosError) throw productosError
       setProductos(productosData || [])
     } catch (error) {
-      console.error('Error cargando datos:', error)
+      console.error('Error cargando productos:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  const redondearAMil = (valor) => Math.round(valor / 1000) * 1000
+  const cargarTotalesPorEstado = async () => {
+    try {
+      const estados = ['borrador', 'listo_para_publicar', 'publicado', 'oculto']
+      const totales = {}
+      
+      for (const estado of estados) {
+        const { count, error } = await supabase
+          .from('productos')
+          .select('*', { count: 'exact', head: true })
+          .eq('id_lista', idLista)
+          .eq('estado', estado)
+        
+        if (!error) {
+          totales[estado] = count || 0
+        }
+      }
+      
+      setTotalPorEstado(totales)
+    } catch (error) {
+      console.error('Error cargando totales:', error)
+    }
+  }
+
+  const calcularValores = () => {
+    if (!lista || !formData.precio_base_usd) return
+
+    const precioBaseUSD = parseFloat(formData.precio_base_usd)
+    const trm = lista.trm_lista
+    const margen = parseFloat(formData.margen_porcentaje) || 0
+
+    // Calcular TAX
+    let taxUSD = 0
+    if (lista.tax_modo_lista === 'porcentaje') {
+      taxUSD = precioBaseUSD * (lista.tax_porcentaje_lista / 100)
+    } else {
+      taxUSD = lista.tax_usd_lista || 0
+    }
+
+    // Costo total en COP
+    const costoTotalCOP = (precioBaseUSD + taxUSD) * trm
+
+    // Precio final y ganancia
+    let precioFinalCOP, gananciaCOP
+
+    if (precioManual && formData.precio_final_cop) {
+      precioFinalCOP = parseFloat(formData.precio_final_cop)
+      gananciaCOP = precioFinalCOP - costoTotalCOP
+    } else {
+      gananciaCOP = costoTotalCOP * (margen / 100)
+      precioFinalCOP = costoTotalCOP + gananciaCOP
+    }
+
+    setCalculos({
+      taxUSD: taxUSD.toFixed(2),
+      costoTotalCOP: Math.round(costoTotalCOP),
+      gananciaCOP: Math.round(gananciaCOP),
+      precioFinalCOP: Math.round(precioFinalCOP),
+      margenReal: ((gananciaCOP / costoTotalCOP) * 100).toFixed(1)
+    })
+  }
 
   const formatearCOP = (valor) => {
     return new Intl.NumberFormat('es-CO', {
       style: 'currency',
       currency: 'COP',
-      minimumFractionDigits: 0
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
     }).format(valor)
-  }
-
-  const calcularValores = () => {
-    if (!lista) return
-
-    const precioBase = parseFloat(formData.precio_base_usd) || 0
-    const margen = parseFloat(formData.margen_porcentaje) || 0
-    const trm = parseFloat(lista.trm_lista) || 0
-
-    let taxUsd = 0
-    if (lista.tax_modo_lista === 'porcentaje') {
-      taxUsd = precioBase * (parseFloat(lista.tax_porcentaje_lista) / 100)
-    } else {
-      taxUsd = parseFloat(lista.tax_usd_lista) || 0
-    }
-
-    const costoTotalUsd = precioBase + taxUsd
-    const costoTotalCop = redondearAMil(costoTotalUsd * trm)
-    const precioSugeridoCop = redondearAMil(costoTotalCop * (1 + margen / 100))
-
-    let precioFinalCop = precioSugeridoCop
-    if (!precioManual) {
-      setFormData(prev => ({ ...prev, precio_final_cop: precioSugeridoCop.toString() }))
-    } else if (formData.precio_final_cop) {
-      precioFinalCop = parseFloat(formData.precio_final_cop)
-    }
-
-    const gananciaCop = redondearAMil(precioFinalCop - costoTotalCop)
-
-    setCalculos({
-      taxUsd: taxUsd.toFixed(2),
-      costoTotalUsd: costoTotalUsd.toFixed(2),
-      costoTotalCop,
-      precioSugeridoCop,
-      precioFinalCop,
-      gananciaCop
-    })
   }
 
   const handleChange = (e) => {
@@ -151,17 +230,29 @@ export default function ProductosPage() {
     }
   }
 
+  const validarFormulario = () => {
+    const newErrors = {}
+    if (!formData.titulo.trim()) {
+      newErrors.titulo = 'El título es requerido'
+    }
+    if (!formData.precio_base_usd || parseFloat(formData.precio_base_usd) <= 0) {
+      newErrors.precio_base_usd = 'El precio base debe ser mayor a 0'
+    }
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
   const handleImageUpload = async (e) => {
-    const files = e.target.files
-    if (!files || files.length === 0) return
+    const files = Array.from(e.target.files)
+    if (files.length === 0) return
 
     setUploadingImages(true)
-    try {
-      const uploadedUrls = []
+    const nuevasUrls = []
 
+    try {
       for (const file of files) {
         const fileExt = file.name.split('.').pop()
-        const fileName = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
         const filePath = `productos/${fileName}`
 
         const { error: uploadError } = await supabase.storage
@@ -174,49 +265,28 @@ export default function ProductosPage() {
           .from('productos-imagenes')
           .getPublicUrl(filePath)
 
-        uploadedUrls.push(publicUrl)
+        nuevasUrls.push(publicUrl)
       }
 
-      setImagenesPreview(prev => [...prev, ...uploadedUrls])
-      setFormData(prev => ({ ...prev, imagenes: [...prev.imagenes, ...uploadedUrls] }))
-      e.target.value = ''
+      setFormData(prev => ({
+        ...prev,
+        imagenes: [...prev.imagenes, ...nuevasUrls]
+      }))
+      setImagenesPreview(prev => [...prev, ...nuevasUrls])
     } catch (error) {
-      console.error('Error subiendo imagenes:', error)
-      alert('Error al subir las imagenes')
+      console.error('Error subiendo imágenes:', error)
+      alert('Error al subir imágenes')
     } finally {
       setUploadingImages(false)
     }
   }
 
-  const handleImageRemove = (index) => {
+  const handleRemoveImage = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      imagenes: prev.imagenes.filter((_, i) => i !== index)
+    }))
     setImagenesPreview(prev => prev.filter((_, i) => i !== index))
-    setFormData(prev => ({ ...prev, imagenes: prev.imagenes.filter((_, i) => i !== index) }))
-  }
-
-  const validarFormulario = () => {
-    const newErrors = {}
-
-    if (!formData.titulo.trim()) {
-      newErrors.titulo = 'El titulo es obligatorio'
-    }
-
-    if (!formData.precio_base_usd || parseFloat(formData.precio_base_usd) <= 0) {
-      newErrors.precio_base_usd = 'El precio base debe ser mayor a 0'
-    }
-
-    if (formData.imagenes.length === 0) {
-      newErrors.imagenes = 'Agrega al menos una imagen'
-    }
-
-    if (calculos && formData.precio_final_cop) {
-      const precioFinal = parseFloat(formData.precio_final_cop)
-      if (precioFinal < calculos.costoTotalCop) {
-        newErrors.precio_final_cop = `El precio no puede ser menor al costo (${formatearCOP(calculos.costoTotalCop)})`
-      }
-    }
-
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
   }
 
   const handleSubmit = async (e) => {
@@ -225,36 +295,35 @@ export default function ProductosPage() {
 
     setActionLoading(true)
     try {
-      const dataToInsert = {
-        id_lista: lista.id,
+      const nuevoProducto = {
+        id_lista: idLista,
         titulo: formData.titulo.trim(),
         marca: formData.marca.trim() || null,
         categoria: formData.categoria,
         descripcion: formData.descripcion.trim() || null,
         imagenes: formData.imagenes,
         precio_base_usd: parseFloat(formData.precio_base_usd),
-        margen_porcentaje: parseFloat(formData.margen_porcentaje) || null,
-        costo_total_cop: calculos?.costoTotalCop,
-        precio_final_cop: parseFloat(formData.precio_final_cop),
-        ganancia_cop: calculos?.gananciaCop,
+        tax_usd: parseFloat(calculos?.taxUSD || 0),
+        costo_total_cop: calculos?.costoTotalCOP || 0,
+        margen_porcentaje: parseFloat(formData.margen_porcentaje),
+        ganancia_cop: calculos?.gananciaCOP || 0,
+        precio_final_cop: calculos?.precioFinalCOP || 0,
         estado: 'borrador'
       }
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('productos')
-        .insert([dataToInsert])
-        .select()
-        .single()
+        .insert([nuevoProducto])
 
       if (error) throw error
 
-      setProductos(prev => [data, ...prev])
       setShowModal(false)
       resetForm()
-      alert('Producto creado exitosamente')
+      setEstadoFiltro('borrador')
+      cargarProductos()
+      cargarTotalesPorEstado()
     } catch (error) {
-      console.error('Error creando producto:', error)
-      alert('Error al crear el producto: ' + error.message)
+      alert('Error al crear producto: ' + error.message)
     } finally {
       setActionLoading(false)
     }
@@ -264,48 +333,28 @@ export default function ProductosPage() {
     setFormData({
       titulo: '',
       marca: '',
-      categoria: 'tecnologia',
+      categoria: 'calzado',
       descripcion: '',
       imagenes: [],
       precio_base_usd: '',
       margen_porcentaje: '25',
       precio_final_cop: ''
     })
-    setImagenesPreview([])
+    setErrors({})
     setCalculos(null)
     setPrecioManual(false)
-    setErrors({})
-  }
-
-  // Acciones de Producto
-  const getAccionesProducto = (estado, estadoLista) => {
-    if (['cerrada', 'archivada'].includes(estadoLista)) return []
-
-    const acciones = {
-      borrador: ['marcar_listo'],
-      listo_para_publicar: estadoLista === 'publicada' ? ['publicar'] : [],
-      publicado: ['ocultar'],
-      oculto: ['publicar']
-    }
-    return acciones[estado] || []
+    setImagenesPreview([])
   }
 
   const handleMarcarListo = async (producto) => {
-    if (!producto.costo_total_cop || !producto.precio_final_cop || !producto.ganancia_cop) {
-      alert('El producto debe tener calculos completos')
-      return
-    }
-
     setActionLoading(true)
     try {
-      const { error } = await supabase
+      await supabase
         .from('productos')
-        .update({ estado: 'listo_para_publicar', updated_at: new Date().toISOString() })
+        .update({ estado: 'listo_para_publicar' })
         .eq('id', producto.id)
-
-      if (error) throw error
-      alert('Producto marcado como listo')
-      cargarDatos()
+      cargarProductos()
+      cargarTotalesPorEstado()
     } catch (error) {
       alert('Error: ' + error.message)
     } finally {
@@ -314,21 +363,14 @@ export default function ProductosPage() {
   }
 
   const handlePublicarProducto = async (producto) => {
-    if (lista.estado !== 'publicada') {
-      alert('La lista debe estar publicada primero')
-      return
-    }
-
     setActionLoading(true)
     try {
-      const { error } = await supabase
+      await supabase
         .from('productos')
-        .update({ estado: 'publicado', updated_at: new Date().toISOString() })
+        .update({ estado: 'publicado' })
         .eq('id', producto.id)
-
-      if (error) throw error
-      alert('Producto publicado')
-      cargarDatos()
+      cargarProductos()
+      cargarTotalesPorEstado()
     } catch (error) {
       alert('Error: ' + error.message)
     } finally {
@@ -339,14 +381,12 @@ export default function ProductosPage() {
   const handleOcultarProducto = async (producto) => {
     setActionLoading(true)
     try {
-      const { error } = await supabase
+      await supabase
         .from('productos')
-        .update({ estado: 'oculto', updated_at: new Date().toISOString() })
+        .update({ estado: 'oculto' })
         .eq('id', producto.id)
-
-      if (error) throw error
-      alert('Producto ocultado')
-      cargarDatos()
+      cargarProductos()
+      cargarTotalesPorEstado()
     } catch (error) {
       alert('Error: ' + error.message)
     } finally {
@@ -354,435 +394,744 @@ export default function ProductosPage() {
     }
   }
 
-  const listaModificable = lista && !['cerrada', 'archivada'].includes(lista.estado)
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-500">Cargando...</p>
-      </div>
-    )
+  const handleMostrarProducto = async (producto) => {
+    setActionLoading(true)
+    try {
+      await supabase
+        .from('productos')
+        .update({ estado: 'publicado' })
+        .eq('id', producto.id)
+      cargarProductos()
+      cargarTotalesPorEstado()
+    } catch (error) {
+      alert('Error: ' + error.message)
+    } finally {
+      setActionLoading(false)
+    }
   }
+
+  const getAccionesProducto = (estadoProducto, estadoLista) => {
+    if (estadoLista !== 'borrador' && estadoLista !== 'publicada') return []
+
+    const acciones = []
+    
+    if (estadoProducto === 'borrador') {
+      acciones.push('marcar_listo')
+    }
+    
+    if (estadoProducto === 'listo_para_publicar' && estadoLista === 'publicada') {
+      acciones.push('publicar')
+    }
+    
+    if (estadoProducto === 'publicado') {
+      acciones.push('ocultar')
+    }
+    
+    if (estadoProducto === 'oculto') {
+      acciones.push('mostrar')
+    }
+
+    return acciones
+  }
+
+  const listaModificable = lista?.estado === 'borrador' || lista?.estado === 'publicada'
+  const productosVisibles = showAll ? productos : productos.slice(0, ITEMS_PER_PAGE)
+  const hayMasProductos = productos.length > ITEMS_PER_PAGE
+  const totalProductos = Object.values(totalPorEstado).reduce((a, b) => a + b, 0)
 
   if (!lista) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-neutrals-ivory flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-500 mb-4">Lista no encontrada</p>
-          <Link href="/admin/listas" className="text-blue-600 hover:underline">
-            Volver a Listas
-          </Link>
+          <div className="w-12 h-12 border-4 border-blue-elegant border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-neutrals-graySoft">Cargando...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-neutrals-ivory">
       {/* Navbar */}
-      <nav className="bg-white shadow-sm">
+      <nav className="navbar-chic sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
+          <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-4">
-              <Link href="/admin/listas" className="text-blue-600 hover:text-blue-800">
-                ← Volver a Listas
+              <Link 
+                href="/admin/listas" 
+                className="p-2 text-neutrals-graySoft hover:text-neutrals-black hover:bg-neutrals-grayBg rounded-lg transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </Link>
+              <div className="h-6 w-px bg-neutrals-grayBorder"></div>
+              <Link href="/admin" className="flex items-center gap-2">
+                <LogoChic size="sm" />
+                <span className="font-display text-sm font-semibold text-neutrals-black hidden sm:inline">
+                  Chic Import USA
+                </span>
               </Link>
             </div>
+            
             {listaModificable && (
-              <div className="flex items-center">
-                <button
-                  onClick={() => { resetForm(); setShowModal(true); }}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-                >
-                  + Agregar Producto
-                </button>
-              </div>
+              <button
+                onClick={() => { resetForm(); setShowModal(true); }}
+                className="btn-primary text-sm flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                <span className="hidden sm:inline">Agregar Producto</span>
+              </button>
             )}
           </div>
         </div>
       </nav>
 
-      {/* Header de Lista */}
-      <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">{lista.titulo}</h1>
-              {lista.descripcion && <p className="text-gray-600 mt-1">{lista.descripcion}</p>}
+      {/* Header de Lista - Estilo Minimalista */}
+      <header className="bg-white border-b-[3px] border-blue-elegant">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            {/* Título y Badge */}
+            <div className="flex flex-col">
+              <h1 className="font-display text-2xl sm:text-3xl font-semibold text-neutrals-black">
+                {lista.titulo}
+              </h1>
+              <span className={`inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-md text-xs font-medium w-fit ${
+                lista.estado === 'publicada' 
+                  ? 'bg-feedback-success/10 text-feedback-success' 
+                  : lista.estado === 'cerrada'
+                  ? 'bg-neutrals-grayBg text-neutrals-grayStrong'
+                  : lista.estado === 'archivada'
+                  ? 'bg-feedback-error/10 text-feedback-error'
+                  : 'bg-amber-50 text-amber-700'
+              }`}>
+                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                  {lista.estado === 'publicada' ? (
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  ) : (
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                  )}
+                </svg>
+                Lista {lista.estado === 'publicada' ? 'Publicada' : lista.estado}
+              </span>
             </div>
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-              lista.estado === 'publicada' ? 'bg-green-100 text-green-800' :
-              lista.estado === 'cerrada' ? 'bg-gray-100 text-gray-800' :
-              lista.estado === 'archivada' ? 'bg-red-100 text-red-800' :
-              'bg-yellow-100 text-yellow-800'
-            }`}>
-              {lista.estado}
-            </span>
+
+            {/* Separador vertical (solo desktop) */}
+            <div className="hidden lg:block w-px h-14 bg-neutrals-grayBorder" />
+
+            {/* Stats en línea */}
+            <div className="flex items-center gap-6 sm:gap-8 overflow-x-auto pb-2 lg:pb-0">
+              <div className="text-center min-w-fit">
+                <p className="font-display text-2xl font-bold" style={{ color: '#D4AF37' }}>
+                  ${lista.trm_lista?.toLocaleString('es-CO')}
+                </p>
+                <p className="text-xs text-neutrals-graySoft uppercase tracking-wide">TRM</p>
+              </div>
+              <div className="text-center min-w-fit">
+                <p className="font-display text-2xl font-bold" style={{ color: '#D4AF37' }}>
+                  {lista.tax_modo_lista === 'porcentaje' 
+                    ? `${lista.tax_porcentaje_lista}%` 
+                    : `$${lista.tax_usd_lista}`}
+                </p>
+                <p className="text-xs text-neutrals-graySoft uppercase tracking-wide">TAX</p>
+              </div>
+              <div className="text-center min-w-fit">
+                <p className="font-display text-2xl font-bold text-blue-elegant">
+                  {totalProductos}
+                </p>
+                <p className="text-xs text-neutrals-graySoft uppercase tracking-wide">Productos</p>
+              </div>
+              <div className="text-center min-w-fit">
+                <p className="font-display text-2xl font-bold text-feedback-success">
+                  {totalPorEstado.publicado}
+                </p>
+                <p className="text-xs text-neutrals-graySoft uppercase tracking-wide">Publicados</p>
+              </div>
+            </div>
           </div>
 
+          {/* Alerta si lista no modificable */}
           {!listaModificable && (
-            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
-              <p className="text-yellow-800">
-                Esta lista esta <strong>{lista.estado}</strong> y no se pueden agregar ni modificar productos.
+            <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <p className="text-sm text-amber-800 flex items-center gap-2">
+                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                Esta lista está <strong className="mx-1">{lista.estado}</strong> y no se pueden modificar productos.
               </p>
             </div>
           )}
+        </div>
+      </header>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <p className="text-xs text-gray-500 uppercase">TRM</p>
-              <p className="text-xl font-bold">${lista.trm_lista?.toLocaleString('es-CO')}</p>
-            </div>
-            <div className="bg-green-50 p-4 rounded-lg">
-              <p className="text-xs text-gray-500 uppercase">TAX</p>
-              <p className="text-xl font-bold">
-                {lista.tax_modo_lista === 'porcentaje' ? `${lista.tax_porcentaje_lista}%` : `$${lista.tax_usd_lista} USD`}
-              </p>
-            </div>
-            <div className="bg-purple-50 p-4 rounded-lg">
-              <p className="text-xs text-gray-500 uppercase">Productos</p>
-              <p className="text-xl font-bold">{productos.length}</p>
-            </div>
-            <div className="bg-emerald-50 p-4 rounded-lg">
-              <p className="text-xs text-gray-500 uppercase">Publicados</p>
-              <p className="text-xl font-bold">{productos.filter(p => p.estado === 'publicado').length}</p>
-            </div>
+      {/* Filtros por Estado */}
+      <div className="bg-white border-b border-neutrals-grayBorder sticky top-16 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex gap-1 py-3 overflow-x-auto">
+            {/* Opción Todos */}
+            <button
+              onClick={() => {
+                setEstadoFiltro('todos')
+                setShowAll(false)
+              }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+                estadoFiltro === 'todos'
+                  ? 'bg-blue-elegant text-white shadow-md'
+                  : 'bg-neutrals-grayBg text-neutrals-grayStrong hover:bg-neutrals-grayBorder'
+              }`}
+            >
+              <span>📋</span>
+              <span>Todos</span>
+              <span className={`px-2 py-0.5 rounded-full text-xs ${
+                estadoFiltro === 'todos'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-white text-neutrals-graySoft'
+              }`}>
+                {totalProductos}
+              </span>
+            </button>
+
+            {Object.entries(ESTADOS_PRODUCTO).map(([estado, info]) => (
+              <button
+                key={estado}
+                onClick={() => {
+                  setEstadoFiltro(estado)
+                  setShowAll(false)
+                }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+                  estadoFiltro === estado
+                    ? 'bg-blue-elegant text-white shadow-md'
+                    : 'bg-neutrals-grayBg text-neutrals-grayStrong hover:bg-neutrals-grayBorder'
+                }`}
+              >
+                <span>{info.icon}</span>
+                <span>{info.label}</span>
+                <span className={`px-2 py-0.5 rounded-full text-xs ${
+                  estadoFiltro === estado
+                    ? 'bg-white/20 text-white'
+                    : 'bg-white text-neutrals-graySoft'
+                }`}>
+                  {totalPorEstado[estado] || 0}
+                </span>
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
       {/* Lista de Productos */}
-      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        {productos.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-lg shadow">
-            <p className="text-gray-500 mb-4">No hay productos en esta lista</p>
-            {listaModificable && (
-              <button
-                onClick={() => setShowModal(true)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-              >
-                Agregar Primer Producto
-              </button>
-            )}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {loading ? (
+          <div className="text-center py-16">
+            <div className="w-10 h-10 border-4 border-blue-elegant border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-neutrals-graySoft">Cargando productos...</p>
+          </div>
+        ) : productos.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="card-premium p-12 max-w-md mx-auto">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl" style={{ backgroundColor: '#dbeafe' }}>
+                {estadoFiltro === 'todos' ? '📦' : ESTADOS_PRODUCTO[estadoFiltro]?.icon || '📦'}
+              </div>
+              <h3 className="font-display text-xl text-neutrals-black mb-2">
+                {estadoFiltro === 'todos' 
+                  ? 'No hay productos' 
+                  : `No hay productos ${ESTADOS_PRODUCTO[estadoFiltro]?.label.toLowerCase()}s`}
+              </h3>
+              <p className="text-neutrals-graySoft mb-6">
+                {estadoFiltro === 'todos' || estadoFiltro === 'borrador'
+                  ? 'Agrega el primer producto a esta lista.'
+                  : `No tienes productos en estado "${ESTADOS_PRODUCTO[estadoFiltro]?.label}".`}
+              </p>
+              {listaModificable && (estadoFiltro === 'todos' || estadoFiltro === 'borrador') && (
+                <button
+                  onClick={() => setShowModal(true)}
+                  className="btn-primary"
+                >
+                  Agregar Producto
+                </button>
+              )}
+            </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {productos.map((producto) => {
-              const estadoInfo = ESTADOS_PRODUCTO[producto.estado] || ESTADOS_PRODUCTO.borrador
-              const acciones = getAccionesProducto(producto.estado, lista.estado)
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {productosVisibles.map((producto, index) => {
+                const estadoInfo = ESTADOS_PRODUCTO[producto.estado] || ESTADOS_PRODUCTO.borrador
+                const acciones = getAccionesProducto(producto.estado, lista.estado)
+                const categoriaInfo = CATEGORIAS.find(c => c.value === producto.categoria)
 
-              return (
-                <div key={producto.id} className="bg-white rounded-lg shadow-md overflow-hidden">
-                  {producto.imagenes?.[0] ? (
-                    <img src={producto.imagenes[0]} alt={producto.titulo} className="w-full h-48 object-cover" />
-                  ) : (
-                    <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
-                      <span className="text-gray-400">Sin imagen</span>
-                    </div>
-                  )}
-
-                  <div className="p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-semibold text-gray-900">{producto.titulo}</h3>
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${estadoInfo.color}`}>
+                return (
+                  <article 
+                    key={producto.id} 
+                    className="card-premium overflow-hidden stagger-item flex flex-col"
+                    style={{ animationDelay: `${index * 0.05}s` }}
+                  >
+                    {/* Imagen */}
+                    <div className="aspect-square relative bg-neutrals-grayBg">
+                      {producto.imagenes?.[0] ? (
+                        <img 
+                          src={producto.imagenes[0]} 
+                          alt={producto.titulo} 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <svg className="w-12 h-12 text-neutrals-grayBorder" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                      )}
+                      <span className={`absolute top-3 right-3 badge ${estadoInfo.class}`}>
                         {estadoInfo.label}
                       </span>
+                      {categoriaInfo && (
+                        <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg text-xs font-medium">
+                          {categoriaInfo.icon} {categoriaInfo.label}
+                        </span>
+                      )}
                     </div>
 
-                    {producto.marca && <p className="text-sm text-gray-500 mb-2">{producto.marca}</p>}
+                    {/* Info */}
+                    <div className="p-4 flex-1 flex flex-col">
+                      <h3 className="font-display text-lg font-semibold text-neutrals-black line-clamp-2">
+                        {producto.titulo}
+                      </h3>
+                      {producto.marca && (
+                        <p className="text-sm text-neutrals-graySoft">{producto.marca}</p>
+                      )}
 
-                    <div className="space-y-1 text-sm border-t pt-3 mt-3">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Precio base:</span>
-                        <span className="font-medium">${producto.precio_base_usd} USD</span>
+                      {/* Info de costos en línea */}
+                      <div className="mt-3 text-xs text-neutrals-graySoft flex gap-3">
+                        <span>Base: ${producto.precio_base_usd} USD</span>
+                        <span>•</span>
+                        <span>Costo: {formatearCOP(producto.costo_total_cop || 0)}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Costo:</span>
-                        <span className="font-medium">{formatearCOP(producto.costo_total_cop || 0)}</span>
+
+                      {/* Precio y Ganancia - Estilo Action Item */}
+                      <div className="mt-3 space-y-2">
+                        {/* Precio */}
+                        <div className="action-item compact">
+                          <div 
+                            className="action-icon"
+                            style={{
+                              background: 'linear-gradient(135deg, #D4AF37, #f4d03f)',
+                            }}
+                          >
+                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </div>
+                          <div className="action-text">
+                            <span className="text-xs text-neutrals-graySoft">Precio venta</span>
+                            <span className="font-display text-lg font-bold" style={{ color: '#D4AF37' }}>
+                              {formatearCOP(producto.precio_final_cop || 0)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Ganancia */}
+                        <div className="action-item compact">
+                          <div className="action-icon success">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                            </svg>
+                          </div>
+                          <div className="action-text">
+                            <span className="text-xs text-neutrals-graySoft">Ganancia ({producto.margen_porcentaje}%)</span>
+                            <span className="font-display text-lg font-bold text-feedback-success">
+                              {formatearCOP(producto.ganancia_cop || 0)}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex justify-between text-lg pt-2 border-t">
-                        <span className="font-medium text-gray-700">Precio:</span>
-                        <span className="font-bold text-green-600">{formatearCOP(producto.precio_final_cop || 0)}</span>
-                      </div>
-                      <div className="flex justify-between bg-emerald-50 -mx-4 px-4 py-2">
-                        <span className="text-emerald-700">Ganancia:</span>
-                        <span className="font-bold text-emerald-700">{formatearCOP(producto.ganancia_cop || 0)}</span>
-                      </div>
+
+                      {/* Acciones */}
+                      {acciones.length > 0 && (
+                        <div className="flex gap-2 mt-4 pt-3 border-t border-neutrals-grayBorder">
+                          {acciones.includes('marcar_listo') && (
+                            <button
+                              onClick={() => handleMarcarListo(producto)}
+                              disabled={actionLoading}
+                              className="flex-1 action-item compact group justify-center"
+                            >
+                              <div className="action-icon success" style={{ width: '28px', height: '28px' }}>
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              </div>
+                              <span className="text-xs font-medium">Marcar Listo</span>
+                            </button>
+                          )}
+                          {acciones.includes('publicar') && (
+                            <button
+                              onClick={() => handlePublicarProducto(producto)}
+                              disabled={actionLoading}
+                              className="flex-1 action-item compact group justify-center"
+                            >
+                              <div className="action-icon success" style={{ width: '28px', height: '28px' }}>
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              </div>
+                              <span className="text-xs font-medium">Publicar</span>
+                            </button>
+                          )}
+                          {acciones.includes('ocultar') && (
+                            <button
+                              onClick={() => handleOcultarProducto(producto)}
+                              disabled={actionLoading}
+                              className="flex-1 action-item compact group justify-center"
+                            >
+                              <div className="action-icon warning" style={{ width: '28px', height: '28px' }}>
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                </svg>
+                              </div>
+                              <span className="text-xs font-medium">Ocultar</span>
+                            </button>
+                          )}
+                          {acciones.includes('mostrar') && (
+                            <button
+                              onClick={() => handleMostrarProducto(producto)}
+                              disabled={actionLoading}
+                              className="flex-1 action-item compact group justify-center"
+                            >
+                              <div className="action-icon" style={{ width: '28px', height: '28px' }}>
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                              </div>
+                              <span className="text-xs font-medium">Mostrar</span>
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
+                  </article>
+                )
+              })}
+            </div>
 
-                    {/* Acciones */}
-                    {acciones.length > 0 && (
-                      <div className="flex gap-2 mt-4 pt-3 border-t">
-                        {acciones.includes('marcar_listo') && (
-                          <button
-                            onClick={() => handleMarcarListo(producto)}
-                            disabled={actionLoading}
-                            className="flex-1 bg-blue-600 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-700 disabled:opacity-50"
-                          >
-                            Marcar Listo
-                          </button>
-                        )}
-                        {acciones.includes('publicar') && (
-                          <button
-                            onClick={() => handlePublicarProducto(producto)}
-                            disabled={actionLoading}
-                            className="flex-1 bg-green-600 text-white px-3 py-1.5 rounded text-sm hover:bg-green-700 disabled:opacity-50"
-                          >
-                            Publicar
-                          </button>
-                        )}
-                        {acciones.includes('ocultar') && (
-                          <button
-                            onClick={() => handleOcultarProducto(producto)}
-                            disabled={actionLoading}
-                            className="flex-1 bg-gray-600 text-white px-3 py-1.5 rounded text-sm hover:bg-gray-700 disabled:opacity-50"
-                          >
-                            Ocultar
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+            {/* Botón Ver Más */}
+            {hayMasProductos && (
+              <div className="text-center mt-8">
+                <button
+                  onClick={() => setShowAll(!showAll)}
+                  className="btn-secondary inline-flex items-center gap-2"
+                >
+                  {showAll ? (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                      </svg>
+                      Mostrar menos
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                      Ver todos ({productos.length - ITEMS_PER_PAGE} más)
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </main>
 
       {/* Modal Agregar Producto */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-lg max-w-4xl w-full my-8">
-            <div className="flex justify-between items-center p-6 border-b sticky top-0 bg-white rounded-t-lg z-10">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="card-premium max-w-4xl w-full my-8 animate-fade-in-up">
+            <div className="flex justify-between items-center p-6 border-b border-neutrals-grayBorder sticky top-0 bg-white rounded-t-chic z-10">
               <div>
-                <h3 className="text-xl font-bold text-gray-900">Agregar Producto</h3>
-                <p className="text-sm text-gray-500">Lista: {lista.titulo}</p>
+                <h3 className="font-display text-xl font-semibold text-neutrals-black">
+                  Agregar Producto
+                </h3>
+                <p className="text-sm text-neutrals-graySoft">Lista: {lista.titulo}</p>
               </div>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
-                ✕
+              <button 
+                onClick={() => setShowModal(false)} 
+                className="text-neutrals-graySoft hover:text-neutrals-black"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
 
             <form onSubmit={handleSubmit} className="p-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Columna Izquierda */}
-                <div className="space-y-4">
-                  <h4 className="font-semibold">Informacion del Producto</h4>
+                <div className="space-y-5">
+                  <h4 className="font-display text-lg font-semibold text-neutrals-black">
+                    Información del Producto
+                  </h4>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Titulo <span className="text-red-500">*</span>
+                    <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                      Título <span className="text-feedback-error">*</span>
                     </label>
                     <input
                       type="text"
                       name="titulo"
                       value={formData.titulo}
                       onChange={handleChange}
-                      className={`w-full px-3 py-2 border rounded-md ${errors.titulo ? 'border-red-500' : 'border-gray-300'}`}
-                      placeholder="Ej: iPhone 15 Pro Max"
+                      className={`input-chic ${errors.titulo ? 'border-feedback-error' : ''}`}
+                      placeholder="Ej: iPhone 15 Pro Max 256GB"
                     />
-                    {errors.titulo && <p className="text-red-500 text-sm mt-1">{errors.titulo}</p>}
+                    {errors.titulo && (
+                      <p className="text-feedback-error text-sm mt-1">{errors.titulo}</p>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                        Marca
+                      </label>
+                      <input
+                        type="text"
+                        name="marca"
+                        value={formData.marca}
+                        onChange={handleChange}
+                        className="input-chic"
+                        placeholder="Ej: Apple"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                        Categoría
+                      </label>
+                      <select
+                        name="categoria"
+                        value={formData.categoria}
+                        onChange={handleChange}
+                        className="input-chic"
+                      >
+                        {CATEGORIAS.map(cat => (
+                          <option key={cat.value} value={cat.value}>
+                            {cat.icon} {cat.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Marca</label>
-                    <input
-                      type="text"
-                      name="marca"
-                      value={formData.marca}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      placeholder="Ej: Apple"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
-                    <select
-                      name="categoria"
-                      value={formData.categoria}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    >
-                      {CATEGORIAS.map(cat => (
-                        <option key={cat.value} value={cat.value}>{cat.label}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Descripcion</label>
+                    <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                      Descripción
+                    </label>
                     <textarea
                       name="descripcion"
                       value={formData.descripcion}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      rows="3"
+                      rows={3}
+                      className="input-chic resize-none"
+                      placeholder="Descripción opcional del producto"
                     />
                   </div>
 
+                  {/* Imágenes */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Imagenes <span className="text-red-500">*</span>
+                    <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                      Imágenes
                     </label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handleImageUpload}
-                      disabled={uploadingImages}
-                      className="w-full"
-                    />
-                    {errors.imagenes && <p className="text-red-500 text-sm mt-1">{errors.imagenes}</p>}
-                    {uploadingImages && <p className="text-blue-600 text-sm mt-1">Subiendo imagenes...</p>}
-
-                    {imagenesPreview.length > 0 && (
-                      <div className="grid grid-cols-3 gap-2 mt-2">
-                        {imagenesPreview.map((url, index) => (
-                          <div key={index} className="relative group">
-                            <img src={url} alt={`Preview ${index + 1}`} className="w-full h-20 object-cover rounded" />
-                            <button
-                              type="button"
-                              onClick={() => handleImageRemove(index)}
-                              className="absolute top-1 right-1 bg-red-500 text-white w-5 h-5 rounded-full text-xs opacity-0 group-hover:opacity-100"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    <div className="border-2 border-dashed border-neutrals-grayBorder rounded-lg p-4">
+                      {imagenesPreview.length > 0 && (
+                        <div className="grid grid-cols-4 gap-2 mb-4">
+                          {imagenesPreview.map((url, index) => (
+                            <div key={index} className="relative aspect-square">
+                              <img src={url} alt="" className="w-full h-full object-cover rounded-lg" />
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveImage(index)}
+                                className="absolute -top-2 -right-2 w-6 h-6 bg-feedback-error text-white rounded-full flex items-center justify-center text-xs"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <label className="flex flex-col items-center justify-center cursor-pointer py-4">
+                        {uploadingImages ? (
+                          <div className="w-8 h-8 border-2 border-blue-elegant border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          <>
+                            <svg className="w-8 h-8 text-neutrals-graySoft mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <span className="text-sm text-neutrals-graySoft">Click para subir imágenes</span>
+                          </>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={handleImageUpload}
+                          className="hidden"
+                          disabled={uploadingImages}
+                        />
+                      </label>
+                    </div>
                   </div>
                 </div>
 
-                {/* Columna Derecha - Calculadora */}
-                <div className="space-y-4">
-                  <h4 className="font-semibold">Calculadora de Precios</h4>
+                {/* Columna Derecha - Precios */}
+                <div className="space-y-5">
+                  <h4 className="font-display text-lg font-semibold text-neutrals-black">
+                    Precios y Cálculos
+                  </h4>
 
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-sm font-medium text-blue-900 mb-2">Parametros de la Lista</p>
-                    <div className="text-sm text-blue-800 space-y-1">
-                      <div className="flex justify-between">
-                        <span>TRM:</span>
-                        <span className="font-medium">${lista.trm_lista?.toLocaleString('es-CO')}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>TAX:</span>
-                        <span className="font-medium">
-                          {lista.tax_modo_lista === 'porcentaje' ? `${lista.tax_porcentaje_lista}%` : `$${lista.tax_usd_lista} USD`}
-                        </span>
-                      </div>
+                  {/* Info de la lista */}
+                  <div className="bg-neutrals-grayBg rounded-lg p-4 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-neutrals-graySoft">TRM de la lista:</span>
+                      <span className="font-semibold">${lista.trm_lista?.toLocaleString('es-CO')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-neutrals-graySoft">TAX:</span>
+                      <span className="font-semibold">
+                        {lista.tax_modo_lista === 'porcentaje' 
+                          ? `${lista.tax_porcentaje_lista}%` 
+                          : `$${lista.tax_usd_lista} USD`}
+                      </span>
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Precio Base (USD) <span className="text-red-500">*</span>
+                    <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                      Precio Base (USD) <span className="text-feedback-error">*</span>
                     </label>
-                    <input
-                      type="number"
-                      name="precio_base_usd"
-                      value={formData.precio_base_usd}
-                      onChange={handleChange}
-                      className={`w-full px-3 py-2 border rounded-md ${errors.precio_base_usd ? 'border-red-500' : 'border-gray-300'}`}
-                      placeholder="99.99"
-                      step="0.01"
-                      min="0"
-                    />
-                    {errors.precio_base_usd && <p className="text-red-500 text-sm mt-1">{errors.precio_base_usd}</p>}
+                    <div className="flex items-center gap-2">
+                      <span className="text-neutrals-grayStrong font-medium text-lg">$</span>
+                      <input
+                        type="number"
+                        name="precio_base_usd"
+                        value={formData.precio_base_usd}
+                        onChange={handleChange}
+                        className={`input-chic flex-1 ${errors.precio_base_usd ? 'border-feedback-error' : ''}`}
+                        placeholder="0.00"
+                        step="0.01"
+                      />
+                    </div>
+                    {errors.precio_base_usd && (
+                      <p className="text-feedback-error text-sm mt-1">{errors.precio_base_usd}</p>
+                    )}
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Margen de Ganancia (%)</label>
-                    <input
-                      type="number"
-                      name="margen_porcentaje"
-                      value={formData.margen_porcentaje}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      placeholder="25"
-                      step="0.01"
-                      min="0"
-                    />
+                    <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                      Margen de Ganancia
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        name="margen_porcentaje"
+                        value={formData.margen_porcentaje}
+                        onChange={handleChange}
+                        className="input-chic flex-1"
+                        placeholder="25"
+                        disabled={precioManual}
+                      />
+                      <span className="text-neutrals-grayStrong font-medium text-lg">%</span>
+                    </div>
                   </div>
 
-                  {calculos && (
-                    <div className="bg-gray-50 border rounded-lg p-4 space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">TAX (USD):</span>
-                        <span className="font-medium">${calculos.taxUsd}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Costo Total (USD):</span>
-                        <span className="font-medium">${calculos.costoTotalUsd}</span>
-                      </div>
-                      <div className="border-t pt-2">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Costo Total (COP):</span>
-                          <span className="font-semibold text-red-600">{formatearCOP(calculos.costoTotalCop)}</span>
-                        </div>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Precio Sugerido:</span>
-                        <span className="font-medium text-blue-600">{formatearCOP(calculos.precioSugeridoCop)}</span>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={precioManual}
+                      onChange={(e) => setPrecioManual(e.target.checked)}
+                      className="w-4 h-4 rounded border-neutrals-grayBorder text-blue-elegant"
+                    />
+                    <span className="text-sm text-neutrals-grayStrong">Definir precio final manualmente</span>
+                  </label>
+
+                  {precioManual && (
+                    <div>
+                      <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                        Precio Final (COP)
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-neutrals-grayStrong font-medium text-lg">$</span>
+                        <input
+                          type="number"
+                          name="precio_final_cop"
+                          value={formData.precio_final_cop}
+                          onChange={handleChange}
+                          className="input-chic flex-1"
+                          placeholder="0"
+                        />
                       </div>
                     </div>
                   )}
 
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="block text-sm font-medium text-gray-700">
-                        Precio Final (COP) <span className="text-red-500">*</span>
-                      </label>
-                      <label className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={precioManual}
-                          onChange={(e) => setPrecioManual(e.target.checked)}
-                          className="rounded"
-                        />
-                        <span className="text-gray-600">Editar manualmente</span>
-                      </label>
-                    </div>
-                    <input
-                      type="number"
-                      name="precio_final_cop"
-                      value={formData.precio_final_cop}
-                      onChange={handleChange}
-                      className={`w-full px-3 py-2 border rounded-md text-xl font-bold ${errors.precio_final_cop ? 'border-red-500' : 'border-gray-300'} ${!precioManual ? 'bg-gray-50' : ''}`}
-                      disabled={!precioManual}
-                      readOnly={!precioManual}
-                    />
-                    {errors.precio_final_cop && <p className="text-red-500 text-sm mt-1">{errors.precio_final_cop}</p>}
-                  </div>
-
+                  {/* Resumen de cálculos */}
                   {calculos && (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium text-green-900">Ganancia Esperada:</span>
-                        <span className="text-xl font-bold text-green-700">{formatearCOP(calculos.gananciaCop)}</span>
+                    <div 
+                      className="rounded-xl p-5 space-y-3"
+                      style={{
+                        background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)',
+                      }}
+                    >
+                      <h5 className="font-semibold text-white text-sm mb-4">Resumen</h5>
+                      
+                      <div className="flex justify-between text-sm">
+                        <span className="text-white/70">TAX estimado:</span>
+                        <span className="text-white font-medium">${calculos.taxUSD} USD</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-white/70">Costo total:</span>
+                        <span className="text-white font-medium">{formatearCOP(calculos.costoTotalCOP)}</span>
+                      </div>
+                      
+                      <div className="border-t border-white/20 pt-3 mt-3">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-white/70">Precio final:</span>
+                          <span 
+                            className="font-display text-2xl font-bold"
+                            style={{
+                              background: 'linear-gradient(135deg, #D4AF37, #f4d03f)',
+                              WebkitBackgroundClip: 'text',
+                              WebkitTextFillColor: 'transparent',
+                            }}
+                          >
+                            {formatearCOP(calculos.precioFinalCOP)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-white/70">Ganancia ({calculos.margenReal}%):</span>
+                          <span className="font-display text-xl font-bold text-green-400">
+                            {formatearCOP(calculos.gananciaCOP)}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Botones */}
-              <div className="flex gap-3 pt-6 mt-6 border-t">
+              <div className="flex gap-3 pt-6 mt-6 border-t border-neutrals-grayBorder">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                  className="flex-1 btn-secondary"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  disabled={actionLoading || uploadingImages}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  disabled={actionLoading || !calculos}
+                  className="flex-1 btn-primary"
                 >
-                  {actionLoading ? 'Guardando...' : 'Guardar Producto'}
+                  {actionLoading ? 'Guardando...' : 'Agregar Producto'}
                 </button>
               </div>
             </form>
