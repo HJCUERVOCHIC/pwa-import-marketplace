@@ -108,6 +108,8 @@ export default function AuthPage() {
                     className="input-chic"
                     placeholder="tu@email.com"
                     required
+                    autoComplete="email"
+                    suppressHydrationWarning
                   />
                 </div>
 
@@ -126,6 +128,8 @@ export default function AuthPage() {
                     className="input-chic"
                     placeholder="••••••••"
                     required
+                    autoComplete="current-password"
+                    suppressHydrationWarning
                   />
                 </div>
               </div>

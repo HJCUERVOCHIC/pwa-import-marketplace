@@ -42,7 +42,6 @@ const CATEGORIAS = [
 
 const ESTADOS_PRODUCTO = {
   borrador: { label: 'Borrador', class: 'badge-warning', icon: '📝' },
-  listo_para_publicar: { label: 'Listo', class: 'badge-blue', icon: '✅' },
   publicado: { label: 'Publicado', class: 'badge-success', icon: '🌐' },
   oculto: { label: 'Oculto', class: 'badge-neutral', icon: '👁️‍🗨️' }
 }
@@ -58,21 +57,21 @@ export default function ProductosPage() {
   const [productos, setProductos] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [modoEdicion, setModoEdicion] = useState(false)
+  const [productoEditando, setProductoEditando] = useState(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [precioManual, setPrecioManual] = useState(false)
   const [calculos, setCalculos] = useState(null)
   const [imagenesPreview, setImagenesPreview] = useState([])
   const [uploadingImages, setUploadingImages] = useState(false)
+  const [isMobileDevice, setIsMobileDevice] = useState(false)
+  const [hasCameraSupport, setHasCameraSupport] = useState(false)
 
   // Estados para filtro y paginación
-  const [estadoFiltro, setEstadoFiltro] = useState('todos')
+  const [categoriaFiltro, setCategoriaFiltro] = useState('todas')
   const [showAll, setShowAll] = useState(false)
-  const [totalPorEstado, setTotalPorEstado] = useState({
-    borrador: 0,
-    listo_para_publicar: 0,
-    publicado: 0,
-    oculto: 0
-  })
+  const [totalPorCategoria, setTotalPorCategoria] = useState({})
+  const [totalPublicados, setTotalPublicados] = useState(0)
 
   const [formData, setFormData] = useState({
     titulo: '',
@@ -96,15 +95,49 @@ export default function ProductosPage() {
   useEffect(() => {
     if (lista) {
       cargarProductos()
-      cargarTotalesPorEstado()
+      cargarTotalesPorCategoria()
     }
-  }, [lista, estadoFiltro])
+  }, [lista, categoriaFiltro])
 
   useEffect(() => {
     if (formData.precio_base_usd && lista) {
       calcularValores()
     }
   }, [formData.precio_base_usd, formData.margen_porcentaje, precioManual, lista])
+
+  // Detectar si es dispositivo móvil y si tiene cámara
+  useEffect(() => {
+    // Detectar dispositivo móvil por user agent y características táctiles
+    const checkMobileDevice = () => {
+      const userAgent = navigator.userAgent || navigator.vendor || window.opera
+      const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase())
+      const hasTouchScreen = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+      setIsMobileDevice(isMobile || hasTouchScreen)
+    }
+
+    // Verificar si hay soporte de cámara
+    const checkCameraSupport = async () => {
+      try {
+        // Verificar si el navegador soporta mediaDevices
+        if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+          const devices = await navigator.mediaDevices.enumerateDevices()
+          const hasCamera = devices.some(device => device.kind === 'videoinput')
+          setHasCameraSupport(hasCamera)
+        } else {
+          // Fallback: asumir que móviles tienen cámara
+          const userAgent = navigator.userAgent || ''
+          const isMobile = /android|iphone|ipad|ipod/i.test(userAgent.toLowerCase())
+          setHasCameraSupport(isMobile)
+        }
+      } catch (error) {
+        console.log('No se pudo verificar cámara:', error)
+        setHasCameraSupport(false)
+      }
+    }
+
+    checkMobileDevice()
+    checkCameraSupport()
+  }, [])
 
   const checkAuth = async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -137,8 +170,8 @@ export default function ProductosPage() {
         .eq('id_lista', idLista)
         .order('created_at', { ascending: false })
 
-      if (estadoFiltro !== 'todos') {
-        query = query.eq('estado', estadoFiltro)
+      if (categoriaFiltro !== 'todas') {
+        query = query.eq('categoria', categoriaFiltro)
       }
 
       const { data: productosData, error: productosError } = await query
@@ -152,24 +185,33 @@ export default function ProductosPage() {
     }
   }
 
-  const cargarTotalesPorEstado = async () => {
+  const cargarTotalesPorCategoria = async () => {
     try {
-      const estados = ['borrador', 'listo_para_publicar', 'publicado', 'oculto']
       const totales = {}
       
-      for (const estado of estados) {
+      // Contar por categoría
+      for (const cat of CATEGORIAS) {
         const { count, error } = await supabase
           .from('productos')
           .select('*', { count: 'exact', head: true })
           .eq('id_lista', idLista)
-          .eq('estado', estado)
+          .eq('categoria', cat.value)
         
         if (!error) {
-          totales[estado] = count || 0
+          totales[cat.value] = count || 0
         }
       }
       
-      setTotalPorEstado(totales)
+      setTotalPorCategoria(totales)
+
+      // Contar publicados
+      const { count: countPublicados } = await supabase
+        .from('productos')
+        .select('*', { count: 'exact', head: true })
+        .eq('id_lista', idLista)
+        .eq('estado', 'publicado')
+      
+      setTotalPublicados(countPublicados || 0)
     } catch (error) {
       console.error('Error cargando totales:', error)
     }
@@ -205,7 +247,9 @@ export default function ProductosPage() {
     }
 
     setCalculos({
+      precioBaseUSD: precioBaseUSD.toFixed(2),
       taxUSD: taxUSD.toFixed(2),
+      costoTotalUSD: (precioBaseUSD + taxUSD).toFixed(2),
       costoTotalCOP: Math.round(costoTotalCOP),
       gananciaCOP: Math.round(gananciaCOP),
       precioFinalCOP: Math.round(precioFinalCOP),
@@ -251,13 +295,32 @@ export default function ProductosPage() {
 
     try {
       for (const file of files) {
-        const fileExt = file.name.split('.').pop()
+        // Obtener extensión del archivo o del tipo MIME
+        let fileExt = file.name.split('.').pop()
+        
+        // Si no hay extensión válida, obtenerla del tipo MIME (común en fotos de cámara)
+        if (!fileExt || fileExt === file.name) {
+          const mimeToExt = {
+            'image/jpeg': 'jpg',
+            'image/jpg': 'jpg',
+            'image/png': 'png',
+            'image/gif': 'gif',
+            'image/webp': 'webp',
+            'image/heic': 'heic',
+            'image/heif': 'heif'
+          }
+          fileExt = mimeToExt[file.type] || 'jpg'
+        }
+
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
         const filePath = `productos/${fileName}`
 
         const { error: uploadError } = await supabase.storage
           .from('productos-imagenes')
-          .upload(filePath, file)
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false
+          })
 
         if (uploadError) throw uploadError
 
@@ -273,9 +336,12 @@ export default function ProductosPage() {
         imagenes: [...prev.imagenes, ...nuevasUrls]
       }))
       setImagenesPreview(prev => [...prev, ...nuevasUrls])
+      
+      // Limpiar el input para permitir subir la misma imagen de nuevo si es necesario
+      e.target.value = ''
     } catch (error) {
       console.error('Error subiendo imágenes:', error)
-      alert('Error al subir imágenes')
+      alert('Error al subir imágenes: ' + error.message)
     } finally {
       setUploadingImages(false)
     }
@@ -295,35 +361,48 @@ export default function ProductosPage() {
 
     setActionLoading(true)
     try {
-      const nuevoProducto = {
-        id_lista: idLista,
+      // Datos del producto (para crear o actualizar)
+      const datosProducto = {
         titulo: formData.titulo.trim(),
         marca: formData.marca.trim() || null,
         categoria: formData.categoria,
         descripcion: formData.descripcion.trim() || null,
-        imagenes: formData.imagenes,
+        imagenes: formData.imagenes.length > 0 ? formData.imagenes : [],
         precio_base_usd: parseFloat(formData.precio_base_usd),
-        tax_usd: parseFloat(calculos?.taxUSD || 0),
-        costo_total_cop: calculos?.costoTotalCOP || 0,
-        margen_porcentaje: parseFloat(formData.margen_porcentaje),
-        ganancia_cop: calculos?.gananciaCOP || 0,
-        precio_final_cop: calculos?.precioFinalCOP || 0,
-        estado: 'borrador'
+        margen_porcentaje: parseFloat(formData.margen_porcentaje) || null,
+        // Solo enviamos precio_final_cop si el usuario lo definió manualmente
+        ...(precioManual && formData.precio_final_cop 
+          ? { precio_final_cop: parseFloat(formData.precio_final_cop) } 
+          : {})
       }
 
-      const { error } = await supabase
-        .from('productos')
-        .insert([nuevoProducto])
+      let error
+
+      if (modoEdicion && productoEditando) {
+        // Actualizar producto existente
+        const resultado = await supabase
+          .from('productos')
+          .update(datosProducto)
+          .eq('id', productoEditando.id)
+        
+        error = resultado.error
+      } else {
+        // Crear nuevo producto
+        const resultado = await supabase
+          .from('productos')
+          .insert([{ ...datosProducto, id_lista: idLista }])
+        
+        error = resultado.error
+      }
 
       if (error) throw error
 
       setShowModal(false)
       resetForm()
-      setEstadoFiltro('borrador')
       cargarProductos()
-      cargarTotalesPorEstado()
+      cargarTotalesPorCategoria()
     } catch (error) {
-      alert('Error al crear producto: ' + error.message)
+      alert(`Error al ${modoEdicion ? 'actualizar' : 'crear'} producto: ` + error.message)
     } finally {
       setActionLoading(false)
     }
@@ -344,22 +423,69 @@ export default function ProductosPage() {
     setCalculos(null)
     setPrecioManual(false)
     setImagenesPreview([])
+    setModoEdicion(false)
+    setProductoEditando(null)
   }
 
-  const handleMarcarListo = async (producto) => {
+  // Función para abrir modal en modo edición
+  const handleEditarProducto = (producto) => {
+    setModoEdicion(true)
+    setProductoEditando(producto)
+    setFormData({
+      titulo: producto.titulo || '',
+      marca: producto.marca || '',
+      categoria: producto.categoria || 'calzado',
+      descripcion: producto.descripcion || '',
+      imagenes: producto.imagenes || [],
+      precio_base_usd: producto.precio_base_usd?.toString() || '',
+      margen_porcentaje: producto.margen_porcentaje?.toString() || '25',
+      precio_final_cop: producto.precio_final_cop?.toString() || ''
+    })
+    setImagenesPreview(producto.imagenes || [])
+    // Si el precio final es diferente al sugerido, activar modo manual
+    if (producto.precio_final_cop && producto.precio_sugerido_cop && 
+        producto.precio_final_cop !== producto.precio_sugerido_cop) {
+      setPrecioManual(true)
+    }
+    setShowModal(true)
+  }
+
+  // Función para eliminar producto
+  const handleEliminarProducto = async (producto) => {
+    const confirmar = window.confirm(
+      `¿Estás seguro de eliminar "${producto.titulo}"?\n\nEsta acción no se puede deshacer.`
+    )
+    
+    if (!confirmar) return
+
     setActionLoading(true)
     try {
-      await supabase
+      const { error } = await supabase
         .from('productos')
-        .update({ estado: 'listo_para_publicar' })
+        .delete()
         .eq('id', producto.id)
+
+      if (error) throw error
+
       cargarProductos()
-      cargarTotalesPorEstado()
+      cargarTotalesPorCategoria()
     } catch (error) {
-      alert('Error: ' + error.message)
+      alert('Error al eliminar: ' + error.message)
     } finally {
       setActionLoading(false)
     }
+  }
+
+  // Función para compartir producto por WhatsApp (misma lógica del catálogo público)
+  const handleCompartirWhatsApp = (producto) => {
+    const urlBase = 'https://pwa-import-marketplace.vercel.app'
+    const urlProducto = `${urlBase}/catalogo/${idLista}/${producto.id}`
+    const precio = formatearCOP(producto.precio_final_cop)
+    
+    const mensaje = `¡Mira este producto!\n\n*${producto.titulo}*\n${producto.marca ? `Marca: ${producto.marca}\n` : ''}Precio: ${precio}\n\n${urlProducto}`
+    
+    const urlWhatsApp = `https://wa.me/?text=${encodeURIComponent(mensaje)}`
+    window.open(urlWhatsApp, '_blank')
   }
 
   const handlePublicarProducto = async (producto) => {
@@ -370,7 +496,7 @@ export default function ProductosPage() {
         .update({ estado: 'publicado' })
         .eq('id', producto.id)
       cargarProductos()
-      cargarTotalesPorEstado()
+      cargarTotalesPorCategoria()
     } catch (error) {
       alert('Error: ' + error.message)
     } finally {
@@ -386,23 +512,7 @@ export default function ProductosPage() {
         .update({ estado: 'oculto' })
         .eq('id', producto.id)
       cargarProductos()
-      cargarTotalesPorEstado()
-    } catch (error) {
-      alert('Error: ' + error.message)
-    } finally {
-      setActionLoading(false)
-    }
-  }
-
-  const handleMostrarProducto = async (producto) => {
-    setActionLoading(true)
-    try {
-      await supabase
-        .from('productos')
-        .update({ estado: 'publicado' })
-        .eq('id', producto.id)
-      cargarProductos()
-      cargarTotalesPorEstado()
+      cargarTotalesPorCategoria()
     } catch (error) {
       alert('Error: ' + error.message)
     } finally {
@@ -411,24 +521,28 @@ export default function ProductosPage() {
   }
 
   const getAccionesProducto = (estadoProducto, estadoLista) => {
-    if (estadoLista !== 'borrador' && estadoLista !== 'publicada') return []
-
     const acciones = []
     
+    // Productos en borrador: editar, eliminar, publicar (si lista publicada)
     if (estadoProducto === 'borrador') {
-      acciones.push('marcar_listo')
+      acciones.push('editar')
+      acciones.push('eliminar')
+      if (estadoLista === 'publicada') {
+        acciones.push('publicar')
+      }
     }
     
-    if (estadoProducto === 'listo_para_publicar' && estadoLista === 'publicada') {
-      acciones.push('publicar')
-    }
-    
+    // Productos publicados: compartir y ocultar
     if (estadoProducto === 'publicado') {
+      acciones.push('compartir_whatsapp')
       acciones.push('ocultar')
     }
     
+    // Productos ocultos: editar, eliminar, publicar (para volver a mostrar)
     if (estadoProducto === 'oculto') {
-      acciones.push('mostrar')
+      acciones.push('editar')
+      acciones.push('eliminar')
+      acciones.push('publicar')
     }
 
     return acciones
@@ -437,7 +551,7 @@ export default function ProductosPage() {
   const listaModificable = lista?.estado === 'borrador' || lista?.estado === 'publicada'
   const productosVisibles = showAll ? productos : productos.slice(0, ITEMS_PER_PAGE)
   const hayMasProductos = productos.length > ITEMS_PER_PAGE
-  const totalProductos = Object.values(totalPorEstado).reduce((a, b) => a + b, 0)
+  const totalProductos = Object.values(totalPorCategoria).reduce((a, b) => a + b, 0)
 
   if (!lista) {
     return (
@@ -545,7 +659,7 @@ export default function ProductosPage() {
               </div>
               <div className="text-center min-w-fit">
                 <p className="font-display text-2xl font-bold text-feedback-success">
-                  {totalPorEstado.publicado}
+                  {totalPublicados}
                 </p>
                 <p className="text-xs text-neutrals-graySoft uppercase tracking-wide">Publicados</p>
               </div>
@@ -566,26 +680,26 @@ export default function ProductosPage() {
         </div>
       </header>
 
-      {/* Filtros por Estado */}
+      {/* Filtros por Categoría */}
       <div className="bg-white border-b border-neutrals-grayBorder sticky top-16 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex gap-1 py-3 overflow-x-auto">
-            {/* Opción Todos */}
+            {/* Opción Todas */}
             <button
               onClick={() => {
-                setEstadoFiltro('todos')
+                setCategoriaFiltro('todas')
                 setShowAll(false)
               }}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
-                estadoFiltro === 'todos'
+                categoriaFiltro === 'todas'
                   ? 'bg-blue-elegant text-white shadow-md'
                   : 'bg-neutrals-grayBg text-neutrals-grayStrong hover:bg-neutrals-grayBorder'
               }`}
             >
               <span>📋</span>
-              <span>Todos</span>
+              <span>Todas</span>
               <span className={`px-2 py-0.5 rounded-full text-xs ${
-                estadoFiltro === 'todos'
+                categoriaFiltro === 'todas'
                   ? 'bg-white/20 text-white'
                   : 'bg-white text-neutrals-graySoft'
               }`}>
@@ -593,28 +707,30 @@ export default function ProductosPage() {
               </span>
             </button>
 
-            {Object.entries(ESTADOS_PRODUCTO).map(([estado, info]) => (
+            {CATEGORIAS.map((cat) => (
               <button
-                key={estado}
+                key={cat.value}
                 onClick={() => {
-                  setEstadoFiltro(estado)
+                  setCategoriaFiltro(cat.value)
                   setShowAll(false)
                 }}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
-                  estadoFiltro === estado
+                  categoriaFiltro === cat.value
                     ? 'bg-blue-elegant text-white shadow-md'
                     : 'bg-neutrals-grayBg text-neutrals-grayStrong hover:bg-neutrals-grayBorder'
                 }`}
               >
-                <span>{info.icon}</span>
-                <span>{info.label}</span>
-                <span className={`px-2 py-0.5 rounded-full text-xs ${
-                  estadoFiltro === estado
-                    ? 'bg-white/20 text-white'
-                    : 'bg-white text-neutrals-graySoft'
-                }`}>
-                  {totalPorEstado[estado] || 0}
-                </span>
+                <span>{cat.icon}</span>
+                <span>{cat.label}</span>
+                {totalPorCategoria[cat.value] > 0 && (
+                  <span className={`px-2 py-0.5 rounded-full text-xs ${
+                    categoriaFiltro === cat.value
+                      ? 'bg-white/20 text-white'
+                      : 'bg-white text-neutrals-graySoft'
+                  }`}>
+                    {totalPorCategoria[cat.value]}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -632,21 +748,21 @@ export default function ProductosPage() {
           <div className="text-center py-16">
             <div className="card-premium p-12 max-w-md mx-auto">
               <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl" style={{ backgroundColor: '#dbeafe' }}>
-                {estadoFiltro === 'todos' ? '📦' : ESTADOS_PRODUCTO[estadoFiltro]?.icon || '📦'}
+                {categoriaFiltro === 'todas' ? '📦' : CATEGORIAS.find(c => c.value === categoriaFiltro)?.icon || '📦'}
               </div>
               <h3 className="font-display text-xl text-neutrals-black mb-2">
-                {estadoFiltro === 'todos' 
+                {categoriaFiltro === 'todas' 
                   ? 'No hay productos' 
-                  : `No hay productos ${ESTADOS_PRODUCTO[estadoFiltro]?.label.toLowerCase()}s`}
+                  : `No hay productos en ${CATEGORIAS.find(c => c.value === categoriaFiltro)?.label}`}
               </h3>
               <p className="text-neutrals-graySoft mb-6">
-                {estadoFiltro === 'todos' || estadoFiltro === 'borrador'
+                {categoriaFiltro === 'todas'
                   ? 'Agrega el primer producto a esta lista.'
-                  : `No tienes productos en estado "${ESTADOS_PRODUCTO[estadoFiltro]?.label}".`}
+                  : `No tienes productos en la categoría "${CATEGORIAS.find(c => c.value === categoriaFiltro)?.label}".`}
               </p>
-              {listaModificable && (estadoFiltro === 'todos' || estadoFiltro === 'borrador') && (
+              {listaModificable && (
                 <button
-                  onClick={() => setShowModal(true)}
+                  onClick={() => { resetForm(); setShowModal(true); }}
                   className="btn-primary"
                 >
                   Agregar Producto
@@ -701,6 +817,11 @@ export default function ProductosPage() {
                       {producto.marca && (
                         <p className="text-sm text-neutrals-graySoft">{producto.marca}</p>
                       )}
+                      {producto.descripcion && (
+                        <p className="text-xs text-neutrals-graySoft mt-1 line-clamp-2">
+                          {producto.descripcion}
+                        </p>
+                      )}
 
                       {/* Info de costos en línea */}
                       <div className="mt-3 text-xs text-neutrals-graySoft flex gap-3">
@@ -749,19 +870,33 @@ export default function ProductosPage() {
 
                       {/* Acciones */}
                       {acciones.length > 0 && (
-                        <div className="flex gap-2 mt-4 pt-3 border-t border-neutrals-grayBorder">
-                          {acciones.includes('marcar_listo') && (
+                        <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-neutrals-grayBorder">
+                          {acciones.includes('editar') && (
                             <button
-                              onClick={() => handleMarcarListo(producto)}
+                              onClick={() => handleEditarProducto(producto)}
                               disabled={actionLoading}
                               className="flex-1 action-item compact group justify-center"
                             >
-                              <div className="action-icon success" style={{ width: '28px', height: '28px' }}>
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              <div className="action-icon" style={{ width: '28px', height: '28px', background: 'linear-gradient(135deg, #1e40af, #1e3a8a)' }}>
+                                <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                 </svg>
                               </div>
-                              <span className="text-xs font-medium">Marcar Listo</span>
+                              <span className="text-xs font-medium">Editar</span>
+                            </button>
+                          )}
+                          {acciones.includes('eliminar') && (
+                            <button
+                              onClick={() => handleEliminarProducto(producto)}
+                              disabled={actionLoading}
+                              className="flex-1 action-item compact group justify-center"
+                            >
+                              <div className="action-icon" style={{ width: '28px', height: '28px', background: 'linear-gradient(135deg, #dc2626, #b91c1c)' }}>
+                                <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </div>
+                              <span className="text-xs font-medium">Eliminar</span>
                             </button>
                           )}
                           {acciones.includes('publicar') && (
@@ -778,6 +913,23 @@ export default function ProductosPage() {
                               <span className="text-xs font-medium">Publicar</span>
                             </button>
                           )}
+                          {acciones.includes('compartir_whatsapp') && (
+                            <button
+                              onClick={() => handleCompartirWhatsApp(producto)}
+                              className="flex-1 action-item compact group justify-center"
+                              style={{ 
+                                background: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)',
+                                border: 'none'
+                              }}
+                            >
+                              <div style={{ width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                                </svg>
+                              </div>
+                              <span className="text-xs font-medium text-white">Compartir</span>
+                            </button>
+                          )}
                           {acciones.includes('ocultar') && (
                             <button
                               onClick={() => handleOcultarProducto(producto)}
@@ -790,21 +942,6 @@ export default function ProductosPage() {
                                 </svg>
                               </div>
                               <span className="text-xs font-medium">Ocultar</span>
-                            </button>
-                          )}
-                          {acciones.includes('mostrar') && (
-                            <button
-                              onClick={() => handleMostrarProducto(producto)}
-                              disabled={actionLoading}
-                              className="flex-1 action-item compact group justify-center"
-                            >
-                              <div className="action-icon" style={{ width: '28px', height: '28px' }}>
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                </svg>
-                              </div>
-                              <span className="text-xs font-medium">Mostrar</span>
                             </button>
                           )}
                         </div>
@@ -844,19 +981,19 @@ export default function ProductosPage() {
         )}
       </main>
 
-      {/* Modal Agregar Producto */}
+      {/* Modal Agregar/Editar Producto */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="card-premium max-w-4xl w-full my-8 animate-fade-in-up">
             <div className="flex justify-between items-center p-6 border-b border-neutrals-grayBorder sticky top-0 bg-white rounded-t-chic z-10">
               <div>
                 <h3 className="font-display text-xl font-semibold text-neutrals-black">
-                  Agregar Producto
+                  {modoEdicion ? 'Editar Producto' : 'Agregar Producto'}
                 </h3>
                 <p className="text-sm text-neutrals-graySoft">Lista: {lista.titulo}</p>
               </div>
               <button 
-                onClick={() => setShowModal(false)} 
+                onClick={() => { setShowModal(false); resetForm(); }} 
                 className="text-neutrals-graySoft hover:text-neutrals-black"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -943,6 +1080,7 @@ export default function ProductosPage() {
                       Imágenes
                     </label>
                     <div className="border-2 border-dashed border-neutrals-grayBorder rounded-lg p-4">
+                      {/* Preview de imágenes */}
                       {imagenesPreview.length > 0 && (
                         <div className="grid grid-cols-4 gap-2 mb-4">
                           {imagenesPreview.map((url, index) => (
@@ -959,26 +1097,67 @@ export default function ProductosPage() {
                           ))}
                         </div>
                       )}
-                      <label className="flex flex-col items-center justify-center cursor-pointer py-4">
-                        {uploadingImages ? (
-                          <div className="w-8 h-8 border-2 border-blue-elegant border-t-transparent rounded-full animate-spin"></div>
-                        ) : (
-                          <>
-                            <svg className="w-8 h-8 text-neutrals-graySoft mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+
+                      {/* Spinner de carga */}
+                      {uploadingImages && (
+                        <div className="flex flex-col items-center justify-center py-4">
+                          <div className="w-8 h-8 border-2 border-blue-elegant border-t-transparent rounded-full animate-spin mb-2"></div>
+                          <span className="text-sm text-neutrals-graySoft">Subiendo imagen...</span>
+                        </div>
+                      )}
+
+                      {/* Botones de acción */}
+                      {!uploadingImages && (
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          {/* Botón Tomar Foto - Solo activo si hay cámara */}
+                          <label 
+                            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 transition-all ${
+                              hasCameraSupport
+                                ? 'border-blue-elegant bg-blue-elegant/5 text-blue-elegant cursor-pointer hover:bg-blue-elegant hover:text-white'
+                                : 'border-neutrals-grayBorder bg-neutrals-grayBg text-neutrals-graySoft cursor-not-allowed opacity-60'
+                            }`}
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
-                            <span className="text-sm text-neutrals-graySoft">Click para subir imágenes</span>
-                          </>
-                        )}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          onChange={handleImageUpload}
-                          className="hidden"
-                          disabled={uploadingImages}
-                        />
-                      </label>
+                            <span className="font-medium text-sm">
+                              {hasCameraSupport ? 'Tomar Foto' : 'Cámara no disponible'}
+                            </span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              capture="environment"
+                              onChange={handleImageUpload}
+                              className="hidden"
+                              disabled={!hasCameraSupport || uploadingImages}
+                            />
+                          </label>
+
+                          {/* Botón Subir Imagen - Siempre activo */}
+                          <label className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 border-neutrals-grayBorder bg-white text-neutrals-grayStrong cursor-pointer hover:border-blue-elegant hover:bg-blue-elegant/5 hover:text-blue-elegant transition-all">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <span className="font-medium text-sm">Subir Imagen</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              onChange={handleImageUpload}
+                              className="hidden"
+                              disabled={uploadingImages}
+                            />
+                          </label>
+                        </div>
+                      )}
+
+                      {/* Texto de ayuda */}
+                      <p className="text-xs text-neutrals-graySoft text-center mt-3">
+                        {hasCameraSupport 
+                          ? 'Toma una foto o selecciona imágenes de tu dispositivo'
+                          : 'Selecciona imágenes de tu dispositivo'}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -1084,11 +1263,19 @@ export default function ProductosPage() {
                       <h5 className="font-semibold text-white text-sm mb-4">Resumen</h5>
                       
                       <div className="flex justify-between text-sm">
-                        <span className="text-white/70">TAX estimado:</span>
-                        <span className="text-white font-medium">${calculos.taxUSD} USD</span>
+                        <span className="text-white/70">Precio base:</span>
+                        <span className="text-white font-medium">${calculos.precioBaseUSD} USD</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-white/70">Costo total:</span>
+                        <span className="text-white/70">TAX estimado:</span>
+                        <span className="text-white font-medium">+ ${calculos.taxUSD} USD</span>
+                      </div>
+                      <div className="flex justify-between text-sm border-t border-white/10 pt-2 mt-2">
+                        <span className="text-white/70">Costo USD:</span>
+                        <span className="text-white font-semibold">${calculos.costoTotalUSD} USD</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-white/70">Costo COP:</span>
                         <span className="text-white font-medium">{formatearCOP(calculos.costoTotalCOP)}</span>
                       </div>
                       
@@ -1121,7 +1308,7 @@ export default function ProductosPage() {
               <div className="flex gap-3 pt-6 mt-6 border-t border-neutrals-grayBorder">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => { setShowModal(false); resetForm(); }}
                   className="flex-1 btn-secondary"
                 >
                   Cancelar
@@ -1131,7 +1318,7 @@ export default function ProductosPage() {
                   disabled={actionLoading || !calculos}
                   className="flex-1 btn-primary"
                 >
-                  {actionLoading ? 'Guardando...' : 'Agregar Producto'}
+                  {actionLoading ? 'Guardando...' : (modoEdicion ? 'Guardar Cambios' : 'Agregar Producto')}
                 </button>
               </div>
             </form>
