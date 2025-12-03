@@ -155,7 +155,6 @@ const getMarcasPorCategoria = (categoria) => {
   return MARCAS_POR_CATEGORIA[categoria] || MARCAS_POR_CATEGORIA.otros
 }
 
-
 const ESTADOS_PRODUCTO = {
   borrador: { label: 'Borrador', class: 'badge-warning', icon: '📝' },
   publicado: { label: 'Publicado', class: 'badge-success', icon: '🌐' },
@@ -1091,18 +1090,19 @@ export default function ProductosPage() {
 
       {/* Modal Agregar/Editar Producto */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="card-premium max-w-4xl w-full my-8 animate-fade-in-up">
-            <div className="flex justify-between items-center p-6 border-b border-neutrals-grayBorder sticky top-0 bg-white rounded-t-chic z-10">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="card-premium max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col animate-fade-in-up">
+            {/* Header del Modal - Fijo */}
+            <div className="flex justify-between items-center p-4 sm:p-6 border-b border-neutrals-grayBorder bg-white rounded-t-chic flex-shrink-0">
               <div>
-                <h3 className="font-display text-xl font-semibold text-neutrals-black">
+                <h3 className="font-display text-lg sm:text-xl font-semibold text-neutrals-black">
                   {modoEdicion ? 'Editar Producto' : 'Agregar Producto'}
                 </h3>
-                <p className="text-sm text-neutrals-graySoft">Lista: {lista.titulo}</p>
+                <p className="text-xs sm:text-sm text-neutrals-graySoft">Lista: {lista.titulo}</p>
               </div>
               <button 
                 onClick={() => { setShowModal(false); resetForm(); }} 
-                className="text-neutrals-graySoft hover:text-neutrals-black"
+                className="text-neutrals-graySoft hover:text-neutrals-black flex-shrink-0"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1110,7 +1110,9 @@ export default function ProductosPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6">
+            {/* Contenido del Modal - Con Scroll */}
+            <div className="overflow-y-auto flex-1">
+              <form onSubmit={handleSubmit} className="p-4 sm:p-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Columna Izquierda */}
                 <div className="space-y-5">
@@ -1438,7 +1440,8 @@ export default function ProductosPage() {
                   {actionLoading ? 'Guardando...' : (modoEdicion ? 'Guardar Cambios' : 'Agregar Producto')}
                 </button>
               </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       )}
