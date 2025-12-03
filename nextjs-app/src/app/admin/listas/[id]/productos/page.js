@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
+import AdminLayout from '@/components/AdminLayout'
 
 // Componente Logo reutilizable
 const LogoChic = ({ size = 'md', className = '' }) => {
@@ -39,6 +40,121 @@ const CATEGORIAS = [
   { value: 'juguetes', label: 'Juguetes', icon: '🧸' },
   { value: 'otros', label: 'Otros', icon: '📦' }
 ]
+
+const MARCAS_POR_CATEGORIA = {
+  calzado: [
+    { value: 'Nike', label: 'Nike', icon: '✓' },
+    { value: 'Adidas', label: 'Adidas', icon: '▲' },
+    { value: 'Puma', label: 'Puma', icon: '🐆' },
+    { value: 'Converse', label: 'Converse', icon: '⭐' },
+    { value: 'Vans', label: 'Vans', icon: '🛹' },
+    { value: 'Reebok', label: 'Reebok', icon: '⚡' },
+    { value: 'New Balance', label: 'New Balance', icon: 'N' },
+    { value: 'Skechers', label: 'Skechers', icon: 'S' },
+    { value: 'Crocs', label: 'Crocs', icon: '🐊' },
+    { value: 'Clarks', label: 'Clarks', icon: '👞' },
+    { value: 'Sin Marca', label: 'Genérico / Sin Marca', icon: '📦' }
+  ],
+  ropa: [
+    { value: 'Zara', label: 'Zara', icon: '👗' },
+    { value: 'H&M', label: 'H&M', icon: '👕' },
+    { value: 'GAP', label: 'GAP', icon: '👔' },
+    { value: 'Uniqlo', label: 'Uniqlo', icon: '🧥' },
+    { value: "Levi's", label: "Levi's", icon: '👖' },
+    { value: 'Tommy Hilfiger', label: 'Tommy Hilfiger', icon: '🎩' },
+    { value: 'Calvin Klein', label: 'Calvin Klein', icon: '⚫' },
+    { value: 'Ralph Lauren', label: 'Ralph Lauren', icon: '🐴' },
+    { value: 'Guess', label: 'Guess', icon: '💎' },
+    { value: 'Mango', label: 'Mango', icon: '🥭' },
+    { value: 'Forever 21', label: 'Forever 21', icon: '21' },
+    { value: 'American Eagle', label: 'American Eagle', icon: '🦅' },
+    { value: 'Sin Marca', label: 'Genérico / Sin Marca', icon: '📦' }
+  ],
+  tecnologia: [
+    { value: 'Apple', label: 'Apple', icon: '🍎' },
+    { value: 'Samsung', label: 'Samsung', icon: '📱' },
+    { value: 'Sony', label: 'Sony', icon: '🎮' },
+    { value: 'HP', label: 'HP', icon: '💻' },
+    { value: 'Dell', label: 'Dell', icon: '🖥️' },
+    { value: 'Lenovo', label: 'Lenovo', icon: '💼' },
+    { value: 'LG', label: 'LG', icon: '📺' },
+    { value: 'Microsoft', label: 'Microsoft', icon: '🪟' },
+    { value: 'Xiaomi', label: 'Xiaomi', icon: 'Mi' },
+    { value: 'Huawei', label: 'Huawei', icon: 'H' },
+    { value: 'Motorola', label: 'Motorola', icon: 'M' },
+    { value: 'Asus', label: 'Asus', icon: 'A' },
+    { value: 'Sin Marca', label: 'Genérico / Sin Marca', icon: '📦' }
+  ],
+  hogar: [
+    { value: 'Philips', label: 'Philips', icon: '💡' },
+    { value: 'Tupperware', label: 'Tupperware', icon: '🥡' },
+    { value: 'Pyrex', label: 'Pyrex', icon: '🍽️' },
+    { value: 'KitchenAid', label: 'KitchenAid', icon: '🍳' },
+    { value: 'Victorinox', label: 'Victorinox', icon: '🔪' },
+    { value: 'Oster', label: 'Oster', icon: '☕' },
+    { value: 'Hamilton Beach', label: 'Hamilton Beach', icon: 'HB' },
+    { value: 'Black & Decker', label: 'Black & Decker', icon: 'BD' },
+    { value: 'Cuisinart', label: 'Cuisinart', icon: '🍲' },
+    { value: 'OXO', label: 'OXO', icon: 'O' },
+    { value: 'Sin Marca', label: 'Genérico / Sin Marca', icon: '📦' }
+  ],
+  deportes: [
+    { value: 'Nike', label: 'Nike', icon: '✓' },
+    { value: 'Adidas', label: 'Adidas', icon: '▲' },
+    { value: 'Puma', label: 'Puma', icon: '🐆' },
+    { value: 'Under Armour', label: 'Under Armour', icon: '💪' },
+    { value: 'The North Face', label: 'The North Face', icon: '🏔️' },
+    { value: 'Columbia', label: 'Columbia', icon: '🧗' },
+    { value: 'Wilson', label: 'Wilson', icon: '🎾' },
+    { value: 'Spalding', label: 'Spalding', icon: '🏀' },
+    { value: 'Speedo', label: 'Speedo', icon: '🏊' },
+    { value: 'Reebok', label: 'Reebok', icon: '⚡' },
+    { value: 'Sin Marca', label: 'Genérico / Sin Marca', icon: '📦' }
+  ],
+  belleza: [
+    { value: "L'Oréal", label: "L'Oréal", icon: '💄' },
+    { value: 'Maybelline', label: 'Maybelline', icon: '💋' },
+    { value: 'Estée Lauder', label: 'Estée Lauder', icon: '✨' },
+    { value: 'Clinique', label: 'Clinique', icon: '🧴' },
+    { value: 'MAC', label: 'MAC', icon: '💅' },
+    { value: 'NYX', label: 'NYX', icon: '🎨' },
+    { value: 'Revlon', label: 'Revlon', icon: 'R' },
+    { value: 'CoverGirl', label: 'CoverGirl', icon: 'CG' },
+    { value: 'Neutrogena', label: 'Neutrogena', icon: '🧼' },
+    { value: 'Cetaphil', label: 'Cetaphil', icon: 'C' },
+    { value: 'Sin Marca', label: 'Genérico / Sin Marca', icon: '📦' }
+  ],
+  juguetes: [
+    { value: 'LEGO', label: 'LEGO', icon: '🧱' },
+    { value: 'Mattel', label: 'Mattel', icon: '🎎' },
+    { value: 'Hasbro', label: 'Hasbro', icon: '🎲' },
+    { value: 'Fisher-Price', label: 'Fisher-Price', icon: '🧸' },
+    { value: 'Barbie', label: 'Barbie', icon: '👸' },
+    { value: 'Hot Wheels', label: 'Hot Wheels', icon: '🏎️' },
+    { value: 'Playmobil', label: 'Playmobil', icon: '🤖' },
+    { value: 'Nerf', label: 'Nerf', icon: '🎯' },
+    { value: 'Disney', label: 'Disney', icon: '🏰' },
+    { value: 'Marvel', label: 'Marvel', icon: '⚡' },
+    { value: 'Sin Marca', label: 'Genérico / Sin Marca', icon: '📦' }
+  ],
+  otros: [
+    { value: 'Michael Kors', label: 'Michael Kors', icon: '👜' },
+    { value: 'Coach', label: 'Coach', icon: '💼' },
+    { value: 'Fossil', label: 'Fossil', icon: '⌚' },
+    { value: 'Casio', label: 'Casio', icon: '🕐' },
+    { value: 'Timex', label: 'Timex', icon: '⏰' },
+    { value: 'Braun', label: 'Braun', icon: '🪒' },
+    { value: 'Oral-B', label: 'Oral-B', icon: '🪥' },
+    { value: 'Gillette', label: 'Gillette', icon: '✂️' },
+    { value: 'Sin Marca', label: 'Genérico / Sin Marca', icon: '📦' },
+    { value: 'Otra marca', label: 'Otra marca', icon: '❓' }
+  ]
+}
+
+const getMarcasPorCategoria = (categoria) => {
+  return MARCAS_POR_CATEGORIA[categoria] || MARCAS_POR_CATEGORIA.otros
+}
+
 
 const ESTADOS_PRODUCTO = {
   borrador: { label: 'Borrador', class: 'badge-warning', icon: '📝' },
@@ -268,7 +384,18 @@ export default function ProductosPage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
+    
+    // Si cambia la categoría, resetear la marca
+    if (name === 'categoria') {
+      setFormData(prev => ({ 
+        ...prev, 
+        [name]: value,
+        marca: ''
+      }))
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }))
+    }
+    
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: null }))
     }
@@ -548,6 +675,7 @@ export default function ProductosPage() {
     return acciones
   }
 
+
   const listaModificable = lista?.estado === 'borrador' || lista?.estado === 'publicada'
   const productosVisibles = showAll ? productos : productos.slice(0, ITEMS_PER_PAGE)
   const hayMasProductos = productos.length > ITEMS_PER_PAGE
@@ -555,54 +683,19 @@ export default function ProductosPage() {
 
   if (!lista) {
     return (
-      <div className="min-h-screen bg-neutrals-ivory flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-blue-elegant border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-neutrals-graySoft">Cargando...</p>
+      <AdminLayout>
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-blue-elegant border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-neutrals-graySoft">Cargando...</p>
+          </div>
         </div>
-      </div>
+      </AdminLayout>
     )
   }
 
   return (
-    <div className="min-h-screen bg-neutrals-ivory">
-      {/* Navbar */}
-      <nav className="navbar-chic sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-4">
-              <Link 
-                href="/admin/listas" 
-                className="p-2 text-neutrals-graySoft hover:text-neutrals-black hover:bg-neutrals-grayBg rounded-lg transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </Link>
-              <div className="h-6 w-px bg-neutrals-grayBorder"></div>
-              <Link href="/admin" className="flex items-center gap-2">
-                <LogoChic size="sm" />
-                <span className="font-display text-sm font-semibold text-neutrals-black hidden sm:inline">
-                  Chic Import USA
-                </span>
-              </Link>
-            </div>
-            
-            {listaModificable && (
-              <button
-                onClick={() => { resetForm(); setShowModal(true); }}
-                className="btn-primary text-sm flex items-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                <span className="hidden sm:inline">Agregar Producto</span>
-              </button>
-            )}
-          </div>
-        </div>
-      </nav>
-
+    <AdminLayout>
       {/* Header de Lista - Estilo Minimalista */}
       <header className="bg-white border-b-[3px] border-blue-elegant">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
@@ -665,6 +758,21 @@ export default function ProductosPage() {
               </div>
             </div>
           </div>
+
+            {/* Botón Agregar Producto */}
+            {listaModificable && (
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={() => { resetForm(); setShowModal(true); }}
+                  className="btn-primary flex items-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span>Agregar Producto</span>
+                </button>
+              </div>
+            )}
 
           {/* Alerta si lista no modificable */}
           {!listaModificable && (
@@ -1028,19 +1136,7 @@ export default function ProductosPage() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
-                        Marca
-                      </label>
-                      <input
-                        type="text"
-                        name="marca"
-                        value={formData.marca}
-                        onChange={handleChange}
-                        className="input-chic"
-                        placeholder="Ej: Apple"
-                      />
-                    </div>
+                    {/* Primero: Categoría */}
                     <div>
                       <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
                         Categoría
@@ -1054,6 +1150,27 @@ export default function ProductosPage() {
                         {CATEGORIAS.map(cat => (
                           <option key={cat.value} value={cat.value}>
                             {cat.icon} {cat.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    {/* Segundo: Marca (filtrada por categoría) */}
+                    <div>
+                      <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                        Marca
+                      </label>
+                      <select
+                        name="marca"
+                        value={formData.marca}
+                        onChange={handleChange}
+                        className="input-chic"
+                        required
+                      >
+                        <option value="">Selecciona una marca</option>
+                        {getMarcasPorCategoria(formData.categoria).map(marca => (
+                          <option key={marca.value} value={marca.value}>
+                            {marca.icon} {marca.label}
                           </option>
                         ))}
                       </select>
@@ -1325,6 +1442,6 @@ export default function ProductosPage() {
           </div>
         </div>
       )}
-    </div>
+    </AdminLayout>
   )
 }

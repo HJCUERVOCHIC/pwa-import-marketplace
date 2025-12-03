@@ -785,3 +785,245 @@ a:hover {
   background-color: var(--color-blue-elegant-light);
   color: var(--color-black);
 }
+
+/* =====================================================
+   OPTIMIZACIÓN MÓVIL GLOBAL
+   Agregar al final de src/app/globals.css
+   ===================================================== */
+
+/* ============ TOUCH-FRIENDLY ELEMENTS ============ */
+
+/* Inputs touch-friendly - iOS requiere mínimo 44px */
+.input-chic {
+  @apply min-h-[44px] px-4 py-3;
+}
+
+/* Botones touch-friendly - Mínimo 48px */
+.btn-primary,
+.btn-secondary,
+.btn-danger,
+.btn-success,
+.btn-ghost {
+  @apply min-h-[48px] px-4 py-3 sm:px-6;
+}
+
+/* ============ PREVENIR ZOOM IOS ============ */
+
+@media (max-width: 640px) {
+  input[type="text"],
+  input[type="number"],
+  input[type="email"],
+  input[type="password"],
+  input[type="tel"],
+  input[type="url"],
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+  
+  /* Labels más grandes en móvil */
+  label {
+    @apply text-base;
+  }
+}
+
+/* ============ FEEDBACK TÁCTIL ============ */
+
+button:active:not(:disabled),
+.btn-primary:active:not(:disabled),
+.btn-secondary:active:not(:disabled),
+.btn-danger:active:not(:disabled),
+.btn-success:active:not(:disabled) {
+  transform: scale(0.95);
+  transition: transform 0.1s;
+}
+
+/* Links touch-friendly */
+a:active {
+  opacity: 0.7;
+}
+
+/* ============ CARDS RESPONSIVE ============ */
+
+.card-premium {
+  @apply p-4 sm:p-6;
+}
+
+/* Cards más compactas en móvil */
+@media (max-width: 640px) {
+  .card-compact {
+    @apply p-3;
+  }
+}
+
+/* ============ SPACING ADAPTATIVO ============ */
+
+.section-padding {
+  @apply px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10;
+}
+
+.page-padding {
+  @apply px-4 sm:px-6 lg:px-8;
+}
+
+/* ============ HEADERS RESPONSIVE ============ */
+
+.page-header {
+  @apply text-xl sm:text-2xl lg:text-3xl;
+}
+
+.section-header {
+  @apply text-lg sm:text-xl;
+}
+
+.card-header {
+  @apply text-base sm:text-lg;
+}
+
+/* ============ GRIDS RESPONSIVE ============ */
+
+.grid-responsive {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6;
+}
+
+.grid-stats {
+  @apply grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6;
+}
+
+/* ============ STATS RESPONSIVE ============ */
+
+/* Stats más compactas en móvil */
+@media (max-width: 640px) {
+  .stat-card {
+    @apply p-3;
+  }
+  
+  .stat-icon {
+    @apply w-10 h-10;
+  }
+  
+  .stat-value {
+    @apply text-2xl;
+  }
+  
+  .stat-label {
+    @apply text-[10px];
+  }
+}
+
+/* ============ NAVIGATION RESPONSIVE ============ */
+
+/* Navbar height adaptativo */
+.navbar-chic {
+  @apply h-14 sm:h-16;
+}
+
+/* Nav links más grandes en móvil */
+@media (max-width: 640px) {
+  .nav-link {
+    @apply py-3 px-4 text-base;
+  }
+}
+
+/* ============ MODALES RESPONSIVE ============ */
+
+/* Modal pantalla completa en móvil */
+@media (max-width: 640px) {
+  .modal-container {
+    @apply w-full min-h-screen rounded-none;
+  }
+  
+  .modal-header {
+    @apply sticky top-0 z-50 shadow-md;
+  }
+}
+
+/* ============ TABLES RESPONSIVE ============ */
+
+/* Tablas scrolleables en móvil */
+@media (max-width: 640px) {
+  .table-container {
+    @apply overflow-x-auto -mx-4;
+  }
+  
+  .table-responsive {
+    @apply min-w-full;
+  }
+  
+  th, td {
+    @apply text-xs px-2 py-2;
+  }
+}
+
+/* ============ FORMS RESPONSIVE ============ */
+
+/* Form groups apilados en móvil */
+@media (max-width: 640px) {
+  .form-row {
+    @apply flex-col space-y-4;
+  }
+}
+
+/* ============ UTILITY CLASSES ============ */
+
+/* Ocultar en móvil */
+.hide-mobile {
+  @apply hidden sm:block;
+}
+
+/* Mostrar solo en móvil */
+.show-mobile {
+  @apply block sm:hidden;
+}
+
+/* Texto truncado responsive */
+.truncate-mobile {
+  @apply truncate sm:whitespace-normal;
+}
+
+/* Scroll horizontal en móvil */
+.scroll-mobile {
+  @apply overflow-x-auto sm:overflow-x-visible;
+}
+
+/* ============ ANIMATIONS MOBILE ============ */
+
+/* Reducir animaciones en móvil para mejor performance */
+@media (max-width: 640px) {
+  .stagger-item {
+    animation-duration: 0.2s;
+  }
+  
+  .animate-fade-in-up {
+    animation-duration: 0.3s;
+  }
+}
+
+/* ============ ACCESSIBILITY ============ */
+
+/* Touch targets mínimos */
+button,
+a,
+input,
+select,
+textarea {
+  @apply min-h-[44px];
+}
+
+/* Focus visible para teclado */
+*:focus-visible {
+  @apply outline-2 outline-offset-2 outline-blue-600;
+}
+
+/* ============ SAFE AREAS (iOS) ============ */
+
+/* Padding para notch/home indicator */
+@supports (padding: max(0px)) {
+  .safe-area-inset-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+  
+  .safe-area-inset-top {
+    padding-top: max(1rem, env(safe-area-inset-top));
+  }
+}

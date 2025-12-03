@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
+import AdminLayout from '@/components/AdminLayout'
 
 // Componente Logo reutilizable
 const LogoChic = ({ size = 'md', className = '' }) => {
@@ -182,11 +183,6 @@ export default function AdminDashboard() {
     }
   }
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/auth')
-  }
-
   const formatDate = (dateString) => {
     if (!dateString) return ''
     const date = new Date(dateString)
@@ -199,79 +195,19 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-neutrals-ivory flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-blue-elegant border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-neutrals-graySoft">Cargando dashboard...</p>
+      <AdminLayout>
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-blue-elegant border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-neutrals-graySoft">Cargando dashboard...</p>
+          </div>
         </div>
-      </div>
+      </AdminLayout>
     )
   }
 
   return (
-    <div className="min-h-screen bg-neutrals-ivory">
-      {/* Navbar Admin */}
-      <nav className="navbar-chic sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-6">
-              <Link href="/admin" className="flex items-center gap-3">
-                <LogoChic size="md" />
-                <div>
-                  <h1 className="font-display text-lg font-semibold text-neutrals-black">
-                    Chic Import USA
-                  </h1>
-                  <p className="text-xs text-neutrals-graySoft -mt-1">Panel Admin</p>
-                </div>
-              </Link>
-              
-              <div className="hidden sm:flex items-center gap-1 ml-6">
-                <Link href="/admin" className="nav-link active">
-                  Dashboard
-                </Link>
-                <Link href="/admin/listas" className="nav-link">
-                  Listas
-                </Link>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              <Link 
-                href="/catalogo" 
-                target="_blank"
-                className="btn-secondary text-sm hidden sm:flex"
-              >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-                Ver Catálogo
-              </Link>
-              
-              <button
-                onClick={handleLogout}
-                className="p-2 text-neutrals-graySoft hover:text-neutrals-black hover:bg-neutrals-grayBg rounded-lg transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* Mobile Nav */}
-      <div className="sm:hidden bg-white border-b border-neutrals-grayBorder">
-        <div className="flex">
-          <Link href="/admin" className="flex-1 py-3 text-center text-sm font-medium text-blue-elegant border-b-2 border-blue-elegant">
-            Dashboard
-          </Link>
-          <Link href="/admin/listas" className="flex-1 py-3 text-center text-sm font-medium text-neutrals-graySoft">
-            Listas
-          </Link>
-        </div>
-      </div>
-
+    <AdminLayout>
       {/* Header */}
       <header className="page-header py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -279,9 +215,15 @@ export default function AdminDashboard() {
             <h1 className="font-display text-3xl font-semibold text-neutrals-black">
               Dashboard
             </h1>
-            <p className="text-neutrals-grayStrong mt-1">
-              Bienvenido, {user?.email}
-            </p>
+            {listaActiva && (
+              <p className="text-neutrals-graySoft mt-2 flex items-center gap-2">
+                Lista activa: 
+                <span className="font-medium text-neutrals-black">{listaActiva.titulo}</span>
+                <span className="text-xs px-2 py-0.5 bg-feedback-success/10 text-feedback-success rounded-full font-medium">
+                  {listaActiva.estado}
+                </span>
+              </p>
+            )}
           </div>
         </div>
       </header>
@@ -290,64 +232,55 @@ export default function AdminDashboard() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {listaActiva ? (
           <>
-            {/* Top Section: Lista Activa + Donut */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              {/* Card Lista Activa - Midnight + Dorado */}
+            {/* Top Section: Info + Donut */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+              {/* Card Info de Lista con Midnight & Gold */}
               <div 
-                className="rounded-2xl p-6 text-white relative overflow-hidden"
+                className="rounded-2xl p-8 shadow-xl relative overflow-hidden"
                 style={{
-                  background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)',
-                  boxShadow: '0 10px 40px rgba(15, 23, 42, 0.5)'
+                  background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #334155 100%)',
+                  boxShadow: '0 20px 60px rgba(15, 23, 42, 0.4), 0 0 40px rgba(212, 175, 55, 0.1)'
                 }}
               >
-                {/* Decorative circles */}
+                {/* Efecto de brillo dorado */}
                 <div 
-                  className="absolute -top-1/2 -right-[30%] w-[200px] h-[200px] rounded-full"
-                  style={{ background: 'rgba(255,255,255,0.1)' }}
+                  className="absolute top-0 right-0 w-64 h-64 opacity-10"
+                  style={{
+                    background: 'radial-gradient(circle, rgba(212,175,55,0.6) 0%, transparent 70%)',
+                    filter: 'blur(40px)'
+                  }}
                 />
-                <div 
-                  className="absolute -bottom-[30%] -left-[20%] w-[150px] h-[150px] rounded-full"
-                  style={{ background: 'rgba(255,255,255,0.05)' }}
-                />
-
-                {/* Content */}
+                
                 <div className="relative z-10">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="font-display text-2xl font-semibold text-white mb-1">
-                        {listaActiva.titulo}
-                      </h3>
-                      <p className="text-white/70 text-sm">
-                        Publicada: {formatDate(listaActiva.created_at)}
-                      </p>
-                    </div>
-                    <span 
-                      className="px-3 py-1 rounded-full text-xs font-semibold"
-                      style={{
-                        background: 'linear-gradient(135deg, #D4AF37, #f4d03f)',
-                        color: '#0f172a',
-                        boxShadow: '0 4px 15px rgba(212, 175, 55, 0.5)'
-                      }}
-                    >
-                      ✨ Activa
-                    </span>
-                  </div>
-
-                  <div className="flex gap-8 mt-6">
-                    <div>
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
                       <div 
-                        className="font-display text-3xl font-bold"
+                        className="w-12 h-12 rounded-xl flex items-center justify-center"
                         style={{
                           background: 'linear-gradient(135deg, #D4AF37, #f4d03f)',
-                          WebkitBackgroundClip: 'text',
-                          WebkitTextFillColor: 'transparent',
-                          backgroundClip: 'text'
+                          boxShadow: '0 8px 20px rgba(212, 175, 55, 0.4)'
                         }}
                       >
-                        {totalProductos}
+                        <span className="text-2xl">📋</span>
                       </div>
-                      <div className="text-white/60 text-sm">Productos</div>
+                      <div>
+                        <h3 className="font-display text-xl font-bold text-white">
+                          {listaActiva.titulo}
+                        </h3>
+                        <p className="text-white/60 text-sm">
+                          Creada {formatDate(listaActiva.created_at)}
+                        </p>
+                      </div>
                     </div>
+                  </div>
+                  
+                  {listaActiva.descripcion && (
+                    <p className="text-white/80 mb-6 leading-relaxed">
+                      {listaActiva.descripcion}
+                    </p>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
                       <div 
                         className="font-display text-3xl font-bold"
@@ -542,6 +475,6 @@ export default function AdminDashboard() {
           </div>
         )}
       </main>
-    </div>
+    </AdminLayout>
   )
 }

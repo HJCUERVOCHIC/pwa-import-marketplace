@@ -1,5 +1,6 @@
 import { Cormorant_Garamond, Inter } from 'next/font/google'
 import './globals.css'
+import AuthErrorHandler from '@/components/AuthErrorHandler'
 
 // Fuente Display - Títulos elegantes
 const cormorantGaramond = Cormorant_Garamond({
@@ -56,7 +57,6 @@ export const metadata = {
     apple: '/apple-touch-icon.png',
   },
   manifest: '/manifest.json',
-  themeColor: '#D4AF37',
 }
 
 export const viewport = {
@@ -68,7 +68,8 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="es" className={`${cormorantGaramond.variable} ${inter.variable}`}>
-      <body className="antialiased">
+      <body className="font-body antialiased">
+        <AuthErrorHandler />
         {children}
       </body>
     </html>
