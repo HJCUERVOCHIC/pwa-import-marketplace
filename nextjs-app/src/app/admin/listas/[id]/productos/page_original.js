@@ -594,45 +594,12 @@ export default function ProductosPage() {
     }
   }
 
-  // Función para compartir producto por WhatsApp - Imagen + Texto
-  const handleCompartirWhatsApp = async (producto) => {
-    const precio = formatearCOP(producto.precio_final_cop)
-    const categoriaInfo = CATEGORIAS.find(c => c.value === producto.categoria)
+  // Función para compartir producto por WhatsApp - Solo URL para card
+  const handleCompartirWhatsApp = (producto) => {
+    const urlBase = 'https://pwa-import-marketplace.vercel.app'
+    const urlProducto = `${urlBase}/catalogo/${idLista}/${producto.id}`
     
-    // Texto con los datos del producto
-    const mensaje = `🏷️ *${producto.titulo}*
-${producto.marca ? `👜 Marca: ${producto.marca}` : ''}
-${categoriaInfo ? `${categoriaInfo.icon} ${categoriaInfo.label}` : ''}
-💰 *Precio: ${precio}*
-${producto.descripcion ? `\n📝 ${producto.descripcion}` : ''}
-
-✨ _Chic Import USA - Productos Premium Importados_`
-
-    // Verificar si hay imagen y si el navegador soporta Web Share API con archivos
-    if (producto.imagenes?.[0] && navigator.canShare) {
-      try {
-        // Descargar la imagen
-        const response = await fetch(producto.imagenes[0])
-        const blob = await response.blob()
-        
-        // Crear archivo de imagen
-        const file = new File([blob], 'producto.jpg', { type: 'image/jpeg' })
-        
-        // Verificar si se puede compartir con archivo
-        if (navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            text: mensaje,
-            files: [file]
-          })
-          return
-        }
-      } catch (error) {
-        console.log('Error compartiendo con imagen:', error)
-      }
-    }
-    
-    // Fallback: solo texto por WhatsApp
-    const urlWhatsApp = `https://wa.me/?text=${encodeURIComponent(mensaje)}`
+    const urlWhatsApp = `https://wa.me/?text=${encodeURIComponent(urlProducto)}`
     window.open(urlWhatsApp, '_blank')
   }
 
