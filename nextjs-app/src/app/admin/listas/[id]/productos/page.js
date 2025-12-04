@@ -594,46 +594,225 @@ export default function ProductosPage() {
     }
   }
 
-  // Función para compartir producto por WhatsApp - Imagen + Texto
-  const handleCompartirWhatsApp = async (producto) => {
+  // Función para generar imagen tipo ficha del producto
+  const generarImagenProducto = async (producto) => {
     const precio = formatearCOP(producto.precio_final_cop)
-    const categoriaInfo = CATEGORIAS.find(c => c.value === producto.categoria)
     
-    // Texto con los datos del producto
-    const mensaje = `🏷️ *${producto.titulo}*
-${producto.marca ? `👜 Marca: ${producto.marca}` : ''}
-${categoriaInfo ? `${categoriaInfo.icon} ${categoriaInfo.label}` : ''}
-💰 *Precio: ${precio}*
-${producto.descripcion ? `\n📝 ${producto.descripcion}` : ''}
-
-✨ _Chic Import USA - Productos Premium Importados_`
-
-    // Verificar si hay imagen y si el navegador soporta Web Share API con archivos
-    if (producto.imagenes?.[0] && navigator.canShare) {
+    return new Promise(async (resolve, reject) => {
       try {
-        // Descargar la imagen
-        const response = await fetch(producto.imagenes[0])
-        const blob = await response.blob()
+        // Crear canvas
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')
         
-        // Crear archivo de imagen
-        const file = new File([blob], 'producto.jpg', { type: 'image/jpeg' })
+        // Dimensiones de la imagen final
+        const anchoCanvas = 800
+        const altoImagen = 600
+        const altoBloque = producto.descripcion ? 280 : 220 // Más alto si hay descripción
+        const altoCanvas = altoImagen + altoBloque
         
-        // Verificar si se puede compartir con archivo
-        if (navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            text: mensaje,
-            files: [file]
-          })
-          return
+        canvas.width = anchoCanvas
+        canvas.height = altoCanvas
+        
+        // Fondo blanco por defecto
+        ctx.fillStyle = '#FFFFFF'
+        ctx.fillRect(0, 0, anchoCanvas, altoCanvas)
+        
+        // Cargar imagen del producto
+        if (producto.imagenes?.[0]) {
+          const img = new window.Image()
+          img.crossOrigin = 'anonymous'
+          
+          img.onload = () => {
+            // Dibujar imagen del producto (parte superior)
+            // Calcular proporciones para centrar y cubrir
+            const imgRatio = img.width / img.height
+            const canvasRatio = anchoCanvas / altoImagen
+            
+            let drawWidth, drawHeight, drawX, drawY
+            
+            if (imgRatio > canvasRatio) {
+              drawHeight = altoImagen
+              drawWidth = img.width * (altoImagen / img.height)
+              drawX = (anchoCanvas - drawWidth) / 2
+              drawY = 0
+            } else {
+              drawWidth = anchoCanvas
+              drawHeight = img.height * (anchoCanvas / img.width)
+              drawX = 0
+              drawY = (altoImagen - drawHeight) / 2
+            }
+            
+            // Fondo gris claro para la zona de imagen
+            ctx.fillStyle = '#F3F4F6'
+            ctx.fillRect(0, 0, anchoCanvas, altoImagen)
+            
+            // Dibujar imagen
+            ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight)
+            
+            // Bloque blanco inferior
+            ctx.fillStyle = '#FFFFFF'
+            ctx.fillRect(0, altoImagen, anchoCanvas, altoBloque)
+            
+            // Línea separadora sutil
+            ctx.strokeStyle = '#E5E7EB'
+            ctx.lineWidth = 1
+            ctx.beginPath()
+            ctx.moveTo(0, altoImagen)
+            ctx.lineTo(anchoCanvas, altoImagen)
+            ctx.stroke()
+            
+            // Textos
+            const padding = 30
+            let yPos = altoImagen + 40
+            
+            // Título del producto
+            ctx.fillStyle = '#111827'
+            ctx.font = 'bold 30px Arial, sans-serif'
+            const titulo = producto.titulo.length > 40 
+              ? producto.titulo.substring(0, 40) + '...' 
+              : producto.titulo
+            ctx.fillText(titulo, padding, yPos)
+            
+            // Marca
+            if (producto.marca) {
+              yPos += 38
+              ctx.fillStyle = '#6B7280'
+              ctx.font = '22px Arial, sans-serif'
+              ctx.fillText(`Marca: ${producto.marca}`, padding, yPos)
+            }
+            
+            // Descripción
+            if (producto.descripcion) {
+              yPos += 35
+              ctx.fillStyle = '#4B5563'
+              ctx.font = '18px Arial, sans-serif'
+              const descripcion = producto.descripcion.length > 80 
+                ? producto.descripcion.substring(0, 80) + '...' 
+                : producto.descripcion
+              ctx.fillText(descripcion, padding, yPos)
+            }
+            
+            // Precio destacado
+            yPos += 50
+            ctx.fillStyle = '#D4AF37' // Dorado
+            ctx.font = 'bold 44px Arial, sans-serif'
+            ctx.fillText(precio, padding, yPos)
+            
+            // Nombre de la tienda
+            yPos += 38
+            ctx.fillStyle = '#9CA3AF'
+            ctx.font = 'italic 18px Arial, sans-serif'
+            ctx.fillText('Chic Import USA', padding, yPos)
+            
+            // Convertir a blob
+            canvas.toBlob((blob) => {
+              resolve(blob)
+            }, 'image/jpeg', 0.9)
+          }
+          
+          img.onerror = () => {
+            reject(new Error('No se pudo cargar la imagen'))
+          }
+          
+          img.src = producto.imagenes[0]
+        } else {
+          // Sin imagen - solo texto
+          ctx.fillStyle = '#F3F4F6'
+          ctx.fillRect(0, 0, anchoCanvas, altoImagen)
+          
+          // Icono placeholder
+          ctx.fillStyle = '#D1D5DB'
+          ctx.font = '120px Arial'
+          ctx.textAlign = 'center'
+          ctx.fillText('📦', anchoCanvas / 2, altoImagen / 2 + 40)
+          ctx.textAlign = 'left'
+          
+          // Bloque blanco inferior
+          ctx.fillStyle = '#FFFFFF'
+          ctx.fillRect(0, altoImagen, anchoCanvas, altoBloque)
+          
+          // Textos
+          const padding = 30
+          let yPos = altoImagen + 40
+          
+          ctx.fillStyle = '#111827'
+          ctx.font = 'bold 30px Arial, sans-serif'
+          ctx.fillText(producto.titulo, padding, yPos)
+          
+          if (producto.marca) {
+            yPos += 38
+            ctx.fillStyle = '#6B7280'
+            ctx.font = '22px Arial, sans-serif'
+            ctx.fillText(`Marca: ${producto.marca}`, padding, yPos)
+          }
+          
+          // Descripción
+          if (producto.descripcion) {
+            yPos += 35
+            ctx.fillStyle = '#4B5563'
+            ctx.font = '18px Arial, sans-serif'
+            const descripcion = producto.descripcion.length > 80 
+              ? producto.descripcion.substring(0, 80) + '...' 
+              : producto.descripcion
+            ctx.fillText(descripcion, padding, yPos)
+          }
+          
+          yPos += 50
+          ctx.fillStyle = '#D4AF37'
+          ctx.font = 'bold 44px Arial, sans-serif'
+          ctx.fillText(precio, padding, yPos)
+          
+          yPos += 38
+          ctx.fillStyle = '#9CA3AF'
+          ctx.font = 'italic 18px Arial, sans-serif'
+          ctx.fillText('Chic Import USA', padding, yPos)
+          
+          canvas.toBlob((blob) => {
+            resolve(blob)
+          }, 'image/jpeg', 0.9)
         }
       } catch (error) {
-        console.log('Error compartiendo con imagen:', error)
+        reject(error)
       }
+    })
+  }
+
+  // Función para compartir producto por WhatsApp - Imagen generada
+  const handleCompartirWhatsApp = async (producto) => {
+    try {
+      setActionLoading(true)
+      
+      // Generar imagen tipo ficha
+      const imagenBlob = await generarImagenProducto(producto)
+      const file = new File([imagenBlob], `${producto.titulo.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`, { type: 'image/jpeg' })
+      
+      // Verificar si el navegador soporta compartir archivos
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file]
+        })
+      } else {
+        // Fallback: descargar imagen
+        const url = URL.createObjectURL(imagenBlob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${producto.titulo.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+        
+        alert('Imagen descargada. Puedes compartirla manualmente en WhatsApp.')
+      }
+    } catch (error) {
+      console.log('Error compartiendo:', error)
+      // Si el usuario cancela, no mostrar error
+      if (error.name !== 'AbortError') {
+        alert('Error al generar imagen: ' + error.message)
+      }
+    } finally {
+      setActionLoading(false)
     }
-    
-    // Fallback: solo texto por WhatsApp
-    const urlWhatsApp = `https://wa.me/?text=${encodeURIComponent(mensaje)}`
-    window.open(urlWhatsApp, '_blank')
   }
 
   const handlePublicarProducto = async (producto) => {
