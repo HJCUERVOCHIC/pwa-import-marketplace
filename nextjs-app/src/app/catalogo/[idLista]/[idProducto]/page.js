@@ -67,30 +67,42 @@ export async function generateMetadata({ params }) {
 
   const precio = formatearPrecioCOP(producto.precio_final_cop)
   const imagen = producto.imagenes?.[0] || 'https://pwa-import-marketplace.vercel.app/og-image.jpg'
-  const descripcion = producto.descripcion 
-    ? producto.descripcion.substring(0, 150) 
-    : `${producto.marca ? producto.marca + ' - ' : ''}${precio}`
+  const urlProducto = `https://pwa-import-marketplace.vercel.app/catalogo/${idLista}/${idProducto}`
+  
+  // Descripción con precio para WhatsApp
+  const descripcionOG = `${precio}${producto.marca ? ` • ${producto.marca}` : ''}${producto.descripcion ? ` • ${producto.descripcion.substring(0, 100)}` : ''}`
 
   return {
     title: `${producto.titulo} - Chic Import USA`,
-    description: descripcion,
+    description: descripcionOG,
+    metadataBase: new URL('https://pwa-import-marketplace.vercel.app'),
     openGraph: {
-      title: producto.titulo,
-      description: `${producto.marca ? producto.marca + ' - ' : ''}${precio}`,
-      images: [{
-        url: imagen,
-        width: 1200,
-        height: 630,
-        alt: producto.titulo,
-      }],
+      title: `${producto.titulo} | Chic Import USA`,
+      description: descripcionOG,
+      url: urlProducto,
+      images: [
+        {
+          url: imagen,
+          width: 1200,
+          height: 630,
+          alt: producto.titulo,
+          type: 'image/jpeg',
+        }
+      ],
       type: 'website',
       siteName: 'Chic Import USA',
+      locale: 'es_CO',
     },
     twitter: {
       card: 'summary_large_image',
-      title: producto.titulo,
-      description: `${producto.marca ? producto.marca + ' - ' : ''}${precio}`,
+      title: `${producto.titulo} | Chic Import USA`,
+      description: descripcionOG,
       images: [imagen],
+    },
+    other: {
+      'og:image:secure_url': imagen,
+      'og:price:amount': producto.precio_final_cop,
+      'og:price:currency': 'COP',
     },
   }
 }

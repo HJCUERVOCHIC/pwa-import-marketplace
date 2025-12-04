@@ -41,119 +41,119 @@ const CATEGORIAS = [
   { value: 'otros', label: 'Otros', icon: '📦' }
 ]
 
-const MARCAS_POR_CATEGORIA = {
-  calzado: [
-    { value: 'Nike', label: 'Nike', icon: '✓' },
-    { value: 'Adidas', label: 'Adidas', icon: '▲' },
-    { value: 'Puma', label: 'Puma', icon: '🐆' },
-    { value: 'Converse', label: 'Converse', icon: '⭐' },
-    { value: 'Vans', label: 'Vans', icon: '🛹' },
-    { value: 'Reebok', label: 'Reebok', icon: '⚡' },
-    { value: 'New Balance', label: 'New Balance', icon: 'N' },
-    { value: 'Skechers', label: 'Skechers', icon: 'S' },
-    { value: 'Crocs', label: 'Crocs', icon: '🐊' },
-    { value: 'Clarks', label: 'Clarks', icon: '👞' },
-    { value: 'Sin Marca', label: 'Genérico / Sin Marca', icon: '📦' }
-  ],
-  ropa: [
-    { value: 'Zara', label: 'Zara', icon: '👗' },
-    { value: 'H&M', label: 'H&M', icon: '👕' },
-    { value: 'GAP', label: 'GAP', icon: '👔' },
-    { value: 'Uniqlo', label: 'Uniqlo', icon: '🧥' },
-    { value: "Levi's", label: "Levi's", icon: '👖' },
-    { value: 'Tommy Hilfiger', label: 'Tommy Hilfiger', icon: '🎩' },
-    { value: 'Calvin Klein', label: 'Calvin Klein', icon: '⚫' },
-    { value: 'Ralph Lauren', label: 'Ralph Lauren', icon: '🐴' },
-    { value: 'Guess', label: 'Guess', icon: '💎' },
-    { value: 'Mango', label: 'Mango', icon: '🥭' },
-    { value: 'Forever 21', label: 'Forever 21', icon: '21' },
-    { value: 'American Eagle', label: 'American Eagle', icon: '🦅' },
-    { value: 'Sin Marca', label: 'Genérico / Sin Marca', icon: '📦' }
-  ],
-  tecnologia: [
-    { value: 'Apple', label: 'Apple', icon: '🍎' },
-    { value: 'Samsung', label: 'Samsung', icon: '📱' },
-    { value: 'Sony', label: 'Sony', icon: '🎮' },
-    { value: 'HP', label: 'HP', icon: '💻' },
-    { value: 'Dell', label: 'Dell', icon: '🖥️' },
-    { value: 'Lenovo', label: 'Lenovo', icon: '💼' },
-    { value: 'LG', label: 'LG', icon: '📺' },
-    { value: 'Microsoft', label: 'Microsoft', icon: '🪟' },
-    { value: 'Xiaomi', label: 'Xiaomi', icon: 'Mi' },
-    { value: 'Huawei', label: 'Huawei', icon: 'H' },
-    { value: 'Motorola', label: 'Motorola', icon: 'M' },
-    { value: 'Asus', label: 'Asus', icon: 'A' },
-    { value: 'Sin Marca', label: 'Genérico / Sin Marca', icon: '📦' }
-  ],
-  hogar: [
-    { value: 'Philips', label: 'Philips', icon: '💡' },
-    { value: 'Tupperware', label: 'Tupperware', icon: '🥡' },
-    { value: 'Pyrex', label: 'Pyrex', icon: '🍽️' },
-    { value: 'KitchenAid', label: 'KitchenAid', icon: '🍳' },
-    { value: 'Victorinox', label: 'Victorinox', icon: '🔪' },
-    { value: 'Oster', label: 'Oster', icon: '☕' },
-    { value: 'Hamilton Beach', label: 'Hamilton Beach', icon: 'HB' },
-    { value: 'Black & Decker', label: 'Black & Decker', icon: 'BD' },
-    { value: 'Cuisinart', label: 'Cuisinart', icon: '🍲' },
-    { value: 'OXO', label: 'OXO', icon: 'O' },
-    { value: 'Sin Marca', label: 'Genérico / Sin Marca', icon: '📦' }
-  ],
-  deportes: [
-    { value: 'Nike', label: 'Nike', icon: '✓' },
-    { value: 'Adidas', label: 'Adidas', icon: '▲' },
-    { value: 'Puma', label: 'Puma', icon: '🐆' },
-    { value: 'Under Armour', label: 'Under Armour', icon: '💪' },
-    { value: 'The North Face', label: 'The North Face', icon: '🏔️' },
-    { value: 'Columbia', label: 'Columbia', icon: '🧗' },
-    { value: 'Wilson', label: 'Wilson', icon: '🎾' },
-    { value: 'Spalding', label: 'Spalding', icon: '🏀' },
-    { value: 'Speedo', label: 'Speedo', icon: '🏊' },
-    { value: 'Reebok', label: 'Reebok', icon: '⚡' },
-    { value: 'Sin Marca', label: 'Genérico / Sin Marca', icon: '📦' }
-  ],
-  belleza: [
-    { value: "L'Oréal", label: "L'Oréal", icon: '💄' },
-    { value: 'Maybelline', label: 'Maybelline', icon: '💋' },
-    { value: 'Estée Lauder', label: 'Estée Lauder', icon: '✨' },
-    { value: 'Clinique', label: 'Clinique', icon: '🧴' },
-    { value: 'MAC', label: 'MAC', icon: '💅' },
-    { value: 'NYX', label: 'NYX', icon: '🎨' },
-    { value: 'Revlon', label: 'Revlon', icon: 'R' },
-    { value: 'CoverGirl', label: 'CoverGirl', icon: 'CG' },
-    { value: 'Neutrogena', label: 'Neutrogena', icon: '🧼' },
-    { value: 'Cetaphil', label: 'Cetaphil', icon: 'C' },
-    { value: 'Sin Marca', label: 'Genérico / Sin Marca', icon: '📦' }
-  ],
-  juguetes: [
-    { value: 'LEGO', label: 'LEGO', icon: '🧱' },
-    { value: 'Mattel', label: 'Mattel', icon: '🎎' },
-    { value: 'Hasbro', label: 'Hasbro', icon: '🎲' },
-    { value: 'Fisher-Price', label: 'Fisher-Price', icon: '🧸' },
-    { value: 'Barbie', label: 'Barbie', icon: '👸' },
-    { value: 'Hot Wheels', label: 'Hot Wheels', icon: '🏎️' },
-    { value: 'Playmobil', label: 'Playmobil', icon: '🤖' },
-    { value: 'Nerf', label: 'Nerf', icon: '🎯' },
-    { value: 'Disney', label: 'Disney', icon: '🏰' },
-    { value: 'Marvel', label: 'Marvel', icon: '⚡' },
-    { value: 'Sin Marca', label: 'Genérico / Sin Marca', icon: '📦' }
-  ],
-  otros: [
-    { value: 'Michael Kors', label: 'Michael Kors', icon: '👜' },
-    { value: 'Coach', label: 'Coach', icon: '💼' },
-    { value: 'Fossil', label: 'Fossil', icon: '⌚' },
-    { value: 'Casio', label: 'Casio', icon: '🕐' },
-    { value: 'Timex', label: 'Timex', icon: '⏰' },
-    { value: 'Braun', label: 'Braun', icon: '🪒' },
-    { value: 'Oral-B', label: 'Oral-B', icon: '🪥' },
-    { value: 'Gillette', label: 'Gillette', icon: '✂️' },
-    { value: 'Sin Marca', label: 'Genérico / Sin Marca', icon: '📦' },
-    { value: 'Otra marca', label: 'Otra marca', icon: '❓' }
-  ]
-}
 
-const getMarcasPorCategoria = (categoria) => {
-  return MARCAS_POR_CATEGORIA[categoria] || MARCAS_POR_CATEGORIA.otros
-}
+// ============================================
+// MARCAS - Array independiente (sin relación con categorías)
+// ============================================
+const MARCAS = [
+  // Deportes / Calzado / Ropa
+  { value: 'Nike', label: 'Nike', icon: '✓' },
+  { value: 'Adidas', label: 'Adidas', icon: '▲' },
+  { value: 'Puma', label: 'Puma', icon: '🐆' },
+  { value: 'Reebok', label: 'Reebok', icon: '⚡' },
+  { value: 'Under Armour', label: 'Under Armour', icon: '💪' },
+  { value: 'New Balance', label: 'New Balance', icon: 'NB' },
+  { value: 'Converse', label: 'Converse', icon: '⭐' },
+  { value: 'Vans', label: 'Vans', icon: '🛹' },
+  { value: 'Skechers', label: 'Skechers', icon: 'S' },
+  { value: 'Crocs', label: 'Crocs', icon: '🐊' },
+  { value: 'Clarks', label: 'Clarks', icon: '👞' },
+  { value: 'The North Face', label: 'The North Face', icon: '🏔️' },
+  { value: 'Columbia', label: 'Columbia', icon: '🧗' },
+  
+  // Ropa / Moda
+  { value: 'Zara', label: 'Zara', icon: '👗' },
+  { value: 'H&M', label: 'H&M', icon: '👕' },
+  { value: 'GAP', label: 'GAP', icon: '👔' },
+  { value: 'Uniqlo', label: 'Uniqlo', icon: '🧥' },
+  { value: "Levi's", label: "Levi's", icon: '👖' },
+  { value: 'Tommy Hilfiger', label: 'Tommy Hilfiger', icon: '🎩' },
+  { value: 'Calvin Klein', label: 'Calvin Klein', icon: '⚫' },
+  { value: 'Ralph Lauren', label: 'Ralph Lauren', icon: '🐴' },
+  { value: 'Guess', label: 'Guess', icon: '💎' },
+  { value: 'Mango', label: 'Mango', icon: '🥭' },
+  { value: 'Forever 21', label: 'Forever 21', icon: '21' },
+  { value: 'American Eagle', label: 'American Eagle', icon: '🦅' },
+  
+  // Tecnología
+  { value: 'Apple', label: 'Apple', icon: '🍎' },
+  { value: 'Samsung', label: 'Samsung', icon: '📱' },
+  { value: 'Sony', label: 'Sony', icon: '🎮' },
+  { value: 'HP', label: 'HP', icon: '💻' },
+  { value: 'Dell', label: 'Dell', icon: '🖥️' },
+  { value: 'Lenovo', label: 'Lenovo', icon: '💼' },
+  { value: 'LG', label: 'LG', icon: '📺' },
+  { value: 'Microsoft', label: 'Microsoft', icon: '🪟' },
+  { value: 'Xiaomi', label: 'Xiaomi', icon: 'Mi' },
+  { value: 'Huawei', label: 'Huawei', icon: 'H' },
+  { value: 'Motorola', label: 'Motorola', icon: 'M' },
+  { value: 'Asus', label: 'Asus', icon: 'A' },
+  { value: 'JBL', label: 'JBL', icon: '🔊' },
+  { value: 'Bose', label: 'Bose', icon: '🎧' },
+  { value: 'Canon', label: 'Canon', icon: '📷' },
+  { value: 'GoPro', label: 'GoPro', icon: '🎬' },
+  
+  // Hogar / Electrodomésticos
+  { value: 'Philips', label: 'Philips', icon: '💡' },
+  { value: 'Tupperware', label: 'Tupperware', icon: '🥡' },
+  { value: 'Pyrex', label: 'Pyrex', icon: '🍽️' },
+  { value: 'KitchenAid', label: 'KitchenAid', icon: '🍳' },
+  { value: 'Victorinox', label: 'Victorinox', icon: '🔪' },
+  { value: 'Oster', label: 'Oster', icon: '☕' },
+  { value: 'Hamilton Beach', label: 'Hamilton Beach', icon: 'HB' },
+  { value: 'Black & Decker', label: 'Black & Decker', icon: 'BD' },
+  { value: 'Cuisinart', label: 'Cuisinart', icon: '🍲' },
+  { value: 'OXO', label: 'OXO', icon: 'O' },
+  { value: 'Dyson', label: 'Dyson', icon: '🌀' },
+  { value: 'iRobot', label: 'iRobot', icon: '🤖' },
+  
+  // Deportes
+  { value: 'Wilson', label: 'Wilson', icon: '🎾' },
+  { value: 'Spalding', label: 'Spalding', icon: '🏀' },
+  { value: 'Speedo', label: 'Speedo', icon: '🏊' },
+  { value: 'Everlast', label: 'Everlast', icon: '🥊' },
+  
+  // Belleza / Cuidado personal
+  { value: "L'Oréal", label: "L'Oréal", icon: '💄' },
+  { value: 'Maybelline', label: 'Maybelline', icon: '💋' },
+  { value: 'Estée Lauder', label: 'Estée Lauder', icon: '✨' },
+  { value: 'Clinique', label: 'Clinique', icon: '🧴' },
+  { value: 'MAC', label: 'MAC', icon: '💅' },
+  { value: 'NYX', label: 'NYX', icon: '🎨' },
+  { value: 'Revlon', label: 'Revlon', icon: 'R' },
+  { value: 'CoverGirl', label: 'CoverGirl', icon: 'CG' },
+  { value: 'Neutrogena', label: 'Neutrogena', icon: '🧼' },
+  { value: 'Cetaphil', label: 'Cetaphil', icon: 'C' },
+  { value: 'Dove', label: 'Dove', icon: '🕊️' },
+  
+  // Juguetes
+  { value: 'LEGO', label: 'LEGO', icon: '🧱' },
+  { value: 'Mattel', label: 'Mattel', icon: '🎎' },
+  { value: 'Hasbro', label: 'Hasbro', icon: '🎲' },
+  { value: 'Fisher-Price', label: 'Fisher-Price', icon: '🧸' },
+  { value: 'Barbie', label: 'Barbie', icon: '👸' },
+  { value: 'Hot Wheels', label: 'Hot Wheels', icon: '🏎️' },
+  { value: 'Playmobil', label: 'Playmobil', icon: '🧩' },
+  { value: 'Nerf', label: 'Nerf', icon: '🎯' },
+  { value: 'Disney', label: 'Disney', icon: '🏰' },
+  { value: 'Marvel', label: 'Marvel', icon: '🦸' },
+  { value: 'Nintendo', label: 'Nintendo', icon: '🎮' },
+  
+  // Accesorios / Otros
+  { value: 'Michael Kors', label: 'Michael Kors', icon: '👜' },
+  { value: 'Coach', label: 'Coach', icon: '💼' },
+  { value: 'Fossil', label: 'Fossil', icon: '⌚' },
+  { value: 'Casio', label: 'Casio', icon: '🕐' },
+  { value: 'Timex', label: 'Timex', icon: '⏰' },
+  { value: 'Braun', label: 'Braun', icon: '🪒' },
+  { value: 'Oral-B', label: 'Oral-B', icon: '🪥' },
+  { value: 'Gillette', label: 'Gillette', icon: '✂️' },
+  { value: 'Ray-Ban', label: 'Ray-Ban', icon: '🕶️' },
+  
+  // Genéricos (siempre al final)
+  { value: 'Sin Marca', label: 'Genérico / Sin Marca', icon: '📦' },
+  { value: 'Otra marca', label: 'Otra marca', icon: '❓' }
+]
 
 const ESTADOS_PRODUCTO = {
   borrador: { label: 'Borrador', class: 'badge-warning', icon: '📝' },
@@ -381,19 +381,11 @@ export default function ProductosPage() {
     }).format(valor)
   }
 
+
+  // handleChange simplificado - ya NO resetea marca al cambiar categoría
   const handleChange = (e) => {
     const { name, value } = e.target
-    
-    // Si cambia la categoría, resetear la marca
-    if (name === 'categoria') {
-      setFormData(prev => ({ 
-        ...prev, 
-        [name]: value,
-        marca: ''
-      }))
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }))
-    }
+    setFormData(prev => ({ ...prev, [name]: value }))
     
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: null }))
@@ -602,15 +594,12 @@ export default function ProductosPage() {
     }
   }
 
-  // Función para compartir producto por WhatsApp (misma lógica del catálogo público)
+  // Función para compartir producto por WhatsApp - Solo URL para card
   const handleCompartirWhatsApp = (producto) => {
     const urlBase = 'https://pwa-import-marketplace.vercel.app'
     const urlProducto = `${urlBase}/catalogo/${idLista}/${producto.id}`
-    const precio = formatearCOP(producto.precio_final_cop)
     
-    const mensaje = `¡Mira este producto!\n\n*${producto.titulo}*\n${producto.marca ? `Marca: ${producto.marca}\n` : ''}Precio: ${precio}\n\n${urlProducto}`
-    
-    const urlWhatsApp = `https://wa.me/?text=${encodeURIComponent(mensaje)}`
+    const urlWhatsApp = `https://wa.me/?text=${encodeURIComponent(urlProducto)}`
     window.open(urlWhatsApp, '_blank')
   }
 
@@ -1157,7 +1146,8 @@ export default function ProductosPage() {
                       </select>
                     </div>
                     
-                    {/* Segundo: Marca (filtrada por categoría) */}
+                    
+                    {/* Marca - Ahora usa el array MARCAS directamente */}
                     <div>
                       <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
                         Marca
@@ -1167,10 +1157,9 @@ export default function ProductosPage() {
                         value={formData.marca}
                         onChange={handleChange}
                         className="input-chic"
-                        required
                       >
                         <option value="">Selecciona una marca</option>
-                        {getMarcasPorCategoria(formData.categoria).map(marca => (
+                        {MARCAS.map(marca => (
                           <option key={marca.value} value={marca.value}>
                             {marca.icon} {marca.label}
                           </option>
