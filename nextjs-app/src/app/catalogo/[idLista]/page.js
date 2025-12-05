@@ -82,6 +82,9 @@ export async function generateMetadata({ params }) {
   }
 }
 
+// Desactivar caché - siempre obtener datos frescos
+export const dynamic = 'force-dynamic'
+
 export default async function ListaPublicaPage({ params }) {
   const { idLista } = await params
   const lista = await getLista(idLista)
