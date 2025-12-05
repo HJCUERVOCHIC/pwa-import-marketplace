@@ -58,6 +58,9 @@ export const metadata = {
   description: 'Explora nuestro catálogo de productos importados premium.',
 }
 
+// Desactivar caché - siempre obtener datos frescos
+export const dynamic = 'force-dynamic'
+
 export default async function CatalogoPage() {
   const listas = await getListasPublicas()
   
