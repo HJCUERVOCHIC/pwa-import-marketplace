@@ -38,12 +38,17 @@ const ESTADOS_LISTA = {
 }
 
 const ITEMS_PER_PAGE = 6
+
 export default function ListasPage() {
   const router = useRouter()
   const [listas, setListas] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
+  
+  // Estado para el modal de selección de tipo de productos
+  const [showProductosModal, setShowProductosModal] = useState(false)
+  const [listaSeleccionada, setListaSeleccionada] = useState(null)
   
   // Nuevos estados para filtro y paginación
   const [estadoFiltro, setEstadoFiltro] = useState('publicada')
@@ -99,7 +104,6 @@ export default function ListasPage() {
 
   const cargarTotalesPorEstado = async () => {
     try {
-      // Contar listas por cada estado
       const estados = ['borrador', 'publicada', 'cerrada', 'archivada']
       const totales = {}
       
@@ -181,7 +185,6 @@ export default function ListasPage() {
 
       setShowModal(false)
       resetForm()
-      // Cambiar al filtro de borrador para ver la nueva lista
       setEstadoFiltro('borrador')
       cargarListas()
       cargarTotalesPorEstado()
@@ -270,7 +273,12 @@ export default function ListasPage() {
     })
   }
 
-  // Listas a mostrar (con límite de 6 o todas)
+  // Función para abrir el modal de selección de productos
+  const handleVerProductos = (lista) => {
+    setListaSeleccionada(lista)
+    setShowProductosModal(true)
+  }
+
   const listasVisibles = showAll ? listas : listas.slice(0, ITEMS_PER_PAGE)
   const hayMasListas = listas.length > ITEMS_PER_PAGE
 
@@ -284,7 +292,6 @@ export default function ListasPage() {
       </div>
     )
   }
-
 
   if (loading) {
     return (
@@ -314,7 +321,6 @@ export default function ListasPage() {
               </p>
             </div>
             
-            {/* Botón Nueva Lista */}
             <button
               onClick={() => { resetForm(); setShowModal(true); }}
               className="btn-primary flex items-center gap-2 w-full sm:w-auto"
@@ -381,7 +387,7 @@ export default function ListasPage() {
                   ? 'Publica una lista en borrador para verla aquí.'
                   : estadoFiltro === 'borrador'
                   ? 'Crea una nueva lista para comenzar.'
-                  : `No tienes listas en estado "${ESTADOS_LISTA[estadoFiltro]?.label}".`}
+                  : 'No hay listas en este estado.'}
               </p>
               {estadoFiltro === 'borrador' && (
                 <button
@@ -420,7 +426,6 @@ export default function ListasPage() {
                           {lista.descripcion}
                         </p>
                       )}
-                      {/* Fecha de creación/publicación */}
                       <div className="flex items-center gap-1 mt-3 text-xs text-neutrals-graySoft">
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -448,12 +453,12 @@ export default function ListasPage() {
                         </div>
                       </div>
                       
-                      {/* Acciones - Estilo Acciones Rápidas */}
+                      {/* Acciones - MODIFICADO: Botón para abrir modal de selección */}
                       <div className="flex flex-col gap-2">
-                        {/* Acción Principal: Ver Productos */}
-                        <Link
-                          href={`/admin/listas/${lista.id}/productos`}
-                          className="action-item group"
+                        {/* Acción Principal: Ver Productos (ahora abre modal) */}
+                        <button
+                          onClick={() => handleVerProductos(lista)}
+                          className="action-item group w-full text-left"
                         >
                           <div className="action-icon">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -462,12 +467,12 @@ export default function ListasPage() {
                           </div>
                           <div className="action-text">
                             <span className="action-title">Ver Productos</span>
-                            <span className="action-subtitle">Gestionar catálogo</span>
+                            <span className="action-subtitle">Elegir tipo de gestión</span>
                           </div>
                           <svg className="w-4 h-4 text-neutrals-graySoft group-hover:translate-x-1 group-hover:text-blue-elegant transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                           </svg>
-                        </Link>
+                        </button>
                         
                         {/* Acciones para Borrador */}
                         {lista.estado === 'borrador' && (
@@ -585,6 +590,117 @@ export default function ListasPage() {
           </>
         )}
       </main>
+
+      {/* Modal Selección Tipo de Productos */}
+      {showProductosModal && listaSeleccionada && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="card-premium max-w-md w-full animate-fade-in-up">
+            <div className="flex justify-between items-center p-6 border-b border-neutrals-grayBorder">
+              <div>
+                <h3 className="font-display text-xl font-semibold text-neutrals-black">
+                  Gestionar Productos
+                </h3>
+                <p className="text-sm text-neutrals-graySoft mt-1">
+                  {listaSeleccionada.titulo}
+                </p>
+              </div>
+              <button 
+                onClick={() => {
+                  setShowProductosModal(false)
+                  setListaSeleccionada(null)
+                }}
+                className="text-neutrals-graySoft hover:text-neutrals-black"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-neutrals-grayStrong text-center mb-4">
+                Selecciona el tipo de gestión de productos:
+              </p>
+
+              {/* Opción Productos Normal */}
+              <Link
+                href={`/admin/listas/${listaSeleccionada.id}/productos`}
+                className="block p-4 rounded-xl border-2 border-neutrals-grayBorder hover:border-blue-elegant hover:bg-blue-elegant/5 transition-all group"
+              >
+                <div className="flex items-center gap-4">
+                  <div 
+                    className="w-14 h-14 rounded-xl flex items-center justify-center"
+                    style={{ background: 'linear-gradient(135deg, #1e40af, #1e3a8a)' }}
+                  >
+                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-display text-lg font-semibold text-neutrals-black group-hover:text-blue-elegant">
+                      Productos Completos
+                    </h4>
+                    <p className="text-sm text-neutrals-graySoft">
+                      Con título, descripción y detalles
+                    </p>
+                  </div>
+                  <svg className="w-5 h-5 text-neutrals-graySoft group-hover:translate-x-1 group-hover:text-blue-elegant transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </Link>
+
+              {/* Opción Productos Rápidos */}
+              <Link
+                href={`/admin/listas/${listaSeleccionada.id}/productos-rapidos`}
+                className="block p-4 rounded-xl border-2 border-neutrals-grayBorder hover:border-orange-500 hover:bg-orange-50 transition-all group"
+              >
+                <div className="flex items-center gap-4">
+                  <div 
+                    className="w-14 h-14 rounded-xl flex items-center justify-center"
+                    style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
+                  >
+                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-display text-lg font-semibold text-neutrals-black group-hover:text-orange-600">
+                        Productos Rápidos
+                      </h4>
+                      <span className="bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                        ⚡ NUEVO
+                      </span>
+                    </div>
+                    <p className="text-sm text-neutrals-graySoft">
+                      Solo imagen, precio y descuento
+                    </p>
+                  </div>
+                  <svg className="w-5 h-5 text-neutrals-graySoft group-hover:translate-x-1 group-hover:text-orange-500 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </Link>
+
+              {/* Info adicional */}
+              <div className="bg-neutrals-grayBg rounded-lg p-4 mt-4">
+                <h5 className="font-semibold text-sm text-neutrals-black mb-2">Diferencias:</h5>
+                <div className="space-y-2 text-xs text-neutrals-grayStrong">
+                  <div className="flex items-start gap-2">
+                    <span className="text-blue-elegant">●</span>
+                    <span><strong>Completos:</strong> Nombre, descripción, marca, imagen editada para WhatsApp</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-orange-500">●</span>
+                    <span><strong>Rápidos:</strong> Código automático, imagen original, descuentos, solo precios en WhatsApp</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Crear Lista */}
       {showModal && (

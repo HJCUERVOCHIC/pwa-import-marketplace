@@ -6,6 +6,8 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import AdminLayout from '@/components/AdminLayout'
+// Motor Unificado de Cálculo de Precios - ÚNICA fuente de verdad
+import { calculatePricing, crearPricingInput, formatearCOP } from '@/lib/pricingEngine'
 
 // Componente Logo reutilizable
 const LogoChic = ({ size = 'md', className = '' }) => {
@@ -155,12 +157,6 @@ const MARCAS = [
   { value: 'Otra marca', label: 'Otra marca', icon: '❓' }
 ]
 
-const ESTADOS_PRODUCTO = {
-  borrador: { label: 'Borrador', class: 'badge-warning', icon: '📝' },
-  publicado: { label: 'Publicado', class: 'badge-success', icon: '🌐' },
-  oculto: { label: 'Oculto', class: 'badge-neutral', icon: '👁️‍🗨️' }
-}
-
 const ITEMS_PER_PAGE = 8
 
 export default function ProductosPage() {
@@ -175,7 +171,6 @@ export default function ProductosPage() {
   const [modoEdicion, setModoEdicion] = useState(false)
   const [productoEditando, setProductoEditando] = useState(null)
   const [actionLoading, setActionLoading] = useState(false)
-  const [precioManual, setPrecioManual] = useState(false)
   const [calculos, setCalculos] = useState(null)
   const [imagenesPreview, setImagenesPreview] = useState([])
   const [uploadingImages, setUploadingImages] = useState(false)
@@ -196,7 +191,7 @@ export default function ProductosPage() {
     imagenes: [],
     precio_base_usd: '',
     margen_porcentaje: '25',
-    precio_final_cop: ''
+    descuento_porcentaje: '0'
   })
   const [errors, setErrors] = useState({})
 
@@ -218,7 +213,7 @@ export default function ProductosPage() {
     if (formData.precio_base_usd && lista) {
       calcularValores()
     }
-  }, [formData.precio_base_usd, formData.margen_porcentaje, precioManual, lista])
+  }, [formData.precio_base_usd, formData.margen_porcentaje, formData.descuento_porcentaje, lista])
 
   // Detectar si es dispositivo móvil y si tiene cámara
   useEffect(() => {
@@ -332,53 +327,46 @@ export default function ProductosPage() {
     }
   }
 
+  /**
+   * Calcula todos los valores usando el Motor Unificado de Precios
+   * IMPORTANTE: Esta es la ÚNICA forma de calcular precios en este componente
+   */
   const calcularValores = () => {
     if (!lista || !formData.precio_base_usd) return
 
-    const precioBaseUSD = parseFloat(formData.precio_base_usd)
-    const trm = lista.trm_lista
-    const margen = parseFloat(formData.margen_porcentaje) || 0
-
-    // Calcular TAX
-    let taxUSD = 0
-    if (lista.tax_modo_lista === 'porcentaje') {
-      taxUSD = precioBaseUSD * (lista.tax_porcentaje_lista / 100)
-    } else {
-      taxUSD = lista.tax_usd_lista || 0
-    }
-
-    // Costo total en COP
-    const costoTotalCOP = (precioBaseUSD + taxUSD) * trm
-
-    // Precio final y ganancia
-    let precioFinalCOP, gananciaCOP
-
-    if (precioManual && formData.precio_final_cop) {
-      precioFinalCOP = parseFloat(formData.precio_final_cop)
-      gananciaCOP = precioFinalCOP - costoTotalCOP
-    } else {
-      gananciaCOP = costoTotalCOP * (margen / 100)
-      precioFinalCOP = costoTotalCOP + gananciaCOP
-    }
-
-    setCalculos({
-      precioBaseUSD: precioBaseUSD.toFixed(2),
-      taxUSD: taxUSD.toFixed(2),
-      costoTotalUSD: (precioBaseUSD + taxUSD).toFixed(2),
-      costoTotalCOP: Math.round(costoTotalCOP),
-      gananciaCOP: Math.round(gananciaCOP),
-      precioFinalCOP: Math.round(precioFinalCOP),
-      margenReal: ((gananciaCOP / costoTotalCOP) * 100).toFixed(1)
+    // Crear input para el motor usando el helper
+    const pricingInput = crearPricingInput({
+      lista,
+      precio_base_usd: parseFloat(formData.precio_base_usd),
+      margen_porcentaje: parseFloat(formData.margen_porcentaje) || 0,
+      descuento_porcentaje: parseFloat(formData.descuento_porcentaje) || 0,
+      precio_final_manual_cop: null
     })
-  }
 
-  const formatearCOP = (valor) => {
-    return new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(valor)
+    // Ejecutar el motor de precios
+    const resultado = calculatePricing(pricingInput)
+
+    if (!resultado.valid) {
+      console.error('Error en cálculo de precios:', resultado.error)
+      return
+    }
+
+    // Mapear resultados del motor al formato esperado por la UI
+    setCalculos({
+      // Valores del motor (fuente de verdad)
+      precio_con_tax_usd: resultado.precio_con_tax_usd,
+      costo_total_usd: resultado.costo_total_usd,
+      costo_total_cop: resultado.costo_total_cop,
+      precio_sugerido_cop: resultado.precio_sugerido_cop,
+      precio_final_cop: resultado.precio_final_cop,
+      ganancia_cop: resultado.ganancia_cop,
+      valor_producto_cop: resultado.valor_producto_cop,
+      descuento_cop: resultado.descuento_cop,
+      
+      // Valores adicionales para UI
+      descuentoPorcentaje: parseFloat(formData.descuento_porcentaje) || 0,
+      tiene_descuento: resultado.tiene_descuento
+    })
   }
 
 
@@ -477,21 +465,32 @@ export default function ProductosPage() {
     e.preventDefault()
     if (!validarFormulario()) return
 
+    if (!calculos || !calculos.precio_final_cop) {
+      alert('Error: No se pudieron calcular los precios. Verifica los datos ingresados.')
+      return
+    }
+
     setActionLoading(true)
     try {
-      // Datos del producto (para crear o actualizar)
+      // TODOS los valores calculados vienen del Motor de Precios (pricingEngine.js)
       const datosProducto = {
         titulo: formData.titulo.trim(),
         marca: formData.marca.trim() || null,
         categoria: formData.categoria,
         descripcion: formData.descripcion.trim() || null,
         imagenes: formData.imagenes.length > 0 ? formData.imagenes : [],
+        
+        // Inputs del usuario
         precio_base_usd: parseFloat(formData.precio_base_usd),
         margen_porcentaje: parseFloat(formData.margen_porcentaje) || null,
-        // Solo enviamos precio_final_cop si el usuario lo definió manualmente
-        ...(precioManual && formData.precio_final_cop 
-          ? { precio_final_cop: parseFloat(formData.precio_final_cop) } 
-          : {})
+        
+        // Valores calculados por el Motor de Precios
+        costo_total_usd: calculos.costo_total_usd,
+        costo_total_cop: calculos.costo_total_cop,
+        precio_sugerido_cop: calculos.precio_sugerido_cop,
+        precio_final_cop: calculos.precio_final_cop,
+        ganancia_cop: calculos.ganancia_cop,
+        valor_producto_cop: calculos.valor_producto_cop,
       }
 
       let error
@@ -505,10 +504,10 @@ export default function ProductosPage() {
         
         error = resultado.error
       } else {
-        // Crear nuevo producto
+        // Crear nuevo producto - siempre como publicado
         const resultado = await supabase
           .from('productos')
-          .insert([{ ...datosProducto, id_lista: idLista }])
+          .insert([{ ...datosProducto, id_lista: idLista, estado: 'publicado' }])
         
         error = resultado.error
       }
@@ -535,11 +534,10 @@ export default function ProductosPage() {
       imagenes: [],
       precio_base_usd: '',
       margen_porcentaje: '25',
-      precio_final_cop: ''
+      descuento_porcentaje: '0'
     })
     setErrors({})
     setCalculos(null)
-    setPrecioManual(false)
     setImagenesPreview([])
     setModoEdicion(false)
     setProductoEditando(null)
@@ -549,6 +547,17 @@ export default function ProductosPage() {
   const handleEditarProducto = (producto) => {
     setModoEdicion(true)
     setProductoEditando(producto)
+    
+    // Calcular el descuento aplicado basándose en valor_producto_cop vs precio_final_cop
+    let descuentoCalculado = 0
+    const valorSinDescuento = producto.valor_producto_cop || producto.precio_sugerido_cop || 0
+    if (valorSinDescuento && producto.precio_final_cop && 
+        producto.precio_final_cop < valorSinDescuento) {
+      descuentoCalculado = Math.round(
+        ((valorSinDescuento - producto.precio_final_cop) / valorSinDescuento) * 100
+      )
+    }
+    
     setFormData({
       titulo: producto.titulo || '',
       marca: producto.marca || '',
@@ -557,14 +566,9 @@ export default function ProductosPage() {
       imagenes: producto.imagenes || [],
       precio_base_usd: producto.precio_base_usd?.toString() || '',
       margen_porcentaje: producto.margen_porcentaje?.toString() || '25',
-      precio_final_cop: producto.precio_final_cop?.toString() || ''
+      descuento_porcentaje: descuentoCalculado.toString()
     })
     setImagenesPreview(producto.imagenes || [])
-    // Si el precio final es diferente al sugerido, activar modo manual
-    if (producto.precio_final_cop && producto.precio_sugerido_cop && 
-        producto.precio_final_cop !== producto.precio_sugerido_cop) {
-      setPrecioManual(true)
-    }
     setShowModal(true)
   }
 
@@ -594,26 +598,33 @@ export default function ProductosPage() {
     }
   }
 
-  // Función para generar imagen tipo ficha del producto
+  // Función para generar imagen tipo ficha del producto (con soporte para descuentos)
   const generarImagenProducto = async (producto) => {
-    const precio = formatearCOP(producto.precio_final_cop)
+    // valor_producto_cop = precio SIN descuento
+    // precio_final_cop = precio CON descuento
+    const precioFinal = producto.precio_final_cop || 0
+    const valorSinDescuento = producto.valor_producto_cop || producto.precio_sugerido_cop || precioFinal
+    const tieneDescuento = valorSinDescuento > precioFinal && precioFinal > 0
+    const descuentoPorcentaje = tieneDescuento 
+      ? Math.round(((valorSinDescuento - precioFinal) / valorSinDescuento) * 100)
+      : 0
     
     return new Promise(async (resolve, reject) => {
       try {
-        // Crear canvas
         const canvas = document.createElement('canvas')
         const ctx = canvas.getContext('2d')
         
-        // Dimensiones de la imagen final
+        // Dimensiones
         const anchoCanvas = 800
         const altoImagen = 600
-        const altoBloque = producto.descripcion ? 280 : 220 // Más alto si hay descripción
+        // Altura del bloque inferior: más alto si hay descripción o descuento
+        const altoBloque = tieneDescuento ? 320 : (producto.descripcion ? 280 : 220)
         const altoCanvas = altoImagen + altoBloque
         
         canvas.width = anchoCanvas
         canvas.height = altoCanvas
         
-        // Fondo blanco por defecto
+        // Fondo blanco
         ctx.fillStyle = '#FFFFFF'
         ctx.fillRect(0, 0, anchoCanvas, altoCanvas)
         
@@ -623,7 +634,6 @@ export default function ProductosPage() {
           img.crossOrigin = 'anonymous'
           
           img.onload = () => {
-            // Dibujar imagen del producto (parte superior)
             // Calcular proporciones para centrar y cubrir
             const imgRatio = img.width / img.height
             const canvasRatio = anchoCanvas / altoImagen
@@ -649,25 +659,33 @@ export default function ProductosPage() {
             // Dibujar imagen
             ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight)
             
-            // Bloque blanco inferior
-            ctx.fillStyle = '#FFFFFF'
+            // Badge de descuento en la imagen (si aplica)
+            if (tieneDescuento) {
+              ctx.fillStyle = '#EF4444'
+              ctx.beginPath()
+              ctx.roundRect(20, 20, 120, 50, 8)
+              ctx.fill()
+              ctx.fillStyle = '#FFFFFF'
+              ctx.font = 'bold 28px Arial, sans-serif'
+              ctx.textAlign = 'center'
+              ctx.fillText(`-${descuentoPorcentaje}%`, 80, 55)
+              ctx.textAlign = 'left'
+            }
+            
+            // Bloque inferior con gradiente azul (estilo productos normales)
+            const gradient = ctx.createLinearGradient(0, altoImagen, 0, altoCanvas)
+            gradient.addColorStop(0, '#0f172a')
+            gradient.addColorStop(1, '#1e3a8a')
+            ctx.fillStyle = gradient
             ctx.fillRect(0, altoImagen, anchoCanvas, altoBloque)
             
-            // Línea separadora sutil
-            ctx.strokeStyle = '#E5E7EB'
-            ctx.lineWidth = 1
-            ctx.beginPath()
-            ctx.moveTo(0, altoImagen)
-            ctx.lineTo(anchoCanvas, altoImagen)
-            ctx.stroke()
-            
-            // Textos
+            // Contenido del bloque
             const padding = 30
             let yPos = altoImagen + 40
             
             // Título del producto
-            ctx.fillStyle = '#111827'
-            ctx.font = 'bold 30px Arial, sans-serif'
+            ctx.fillStyle = '#FFFFFF'
+            ctx.font = 'bold 28px Arial, sans-serif'
             const titulo = producto.titulo.length > 40 
               ? producto.titulo.substring(0, 40) + '...' 
               : producto.titulo
@@ -675,39 +693,71 @@ export default function ProductosPage() {
             
             // Marca
             if (producto.marca) {
-              yPos += 38
-              ctx.fillStyle = '#6B7280'
-              ctx.font = '22px Arial, sans-serif'
-              ctx.fillText(`Marca: ${producto.marca}`, padding, yPos)
+              yPos += 32
+              ctx.fillStyle = 'rgba(255,255,255,0.7)'
+              ctx.font = '20px Arial, sans-serif'
+              ctx.fillText(producto.marca, padding, yPos)
             }
             
             // Descripción
             if (producto.descripcion) {
-              yPos += 35
-              ctx.fillStyle = '#4B5563'
-              ctx.font = '18px Arial, sans-serif'
-              const descripcion = producto.descripcion.length > 80 
-                ? producto.descripcion.substring(0, 80) + '...' 
+              yPos += 30
+              ctx.fillStyle = 'rgba(255,255,255,0.6)'
+              ctx.font = '16px Arial, sans-serif'
+              const descripcion = producto.descripcion.length > 60 
+                ? producto.descripcion.substring(0, 60) + '...' 
                 : producto.descripcion
               ctx.fillText(descripcion, padding, yPos)
             }
             
-            // Precio destacado
-            yPos += 50
-            ctx.fillStyle = '#D4AF37' // Dorado
-            ctx.font = 'bold 44px Arial, sans-serif'
-            ctx.fillText(precio, padding, yPos)
+            // Sección de precios
+            yPos += 45
             
-            // Nombre de la tienda
-            yPos += 38
-            ctx.fillStyle = '#9CA3AF'
+            if (tieneDescuento) {
+              // Precio tachado
+              ctx.fillStyle = 'rgba(255,255,255,0.5)'
+              ctx.font = '22px Arial, sans-serif'
+              const precioTachado = formatearCOP(valorSinDescuento)
+              ctx.fillText(precioTachado, padding, yPos)
+              
+              // Línea de tachado
+              const textWidth = ctx.measureText(precioTachado).width
+              ctx.strokeStyle = 'rgba(255,255,255,0.5)'
+              ctx.lineWidth = 2
+              ctx.beginPath()
+              ctx.moveTo(padding, yPos - 8)
+              ctx.lineTo(padding + textWidth, yPos - 8)
+              ctx.stroke()
+              
+              // Precio con descuento (grande, dorado)
+              yPos += 50
+              ctx.fillStyle = '#D4AF37'
+              ctx.font = 'bold 48px Arial, sans-serif'
+              ctx.fillText(formatearCOP(precioFinal), padding, yPos)
+              
+              // Texto de ahorro
+              yPos += 35
+              ctx.fillStyle = '#FEF08A'
+              ctx.font = 'bold 18px Arial, sans-serif'
+              ctx.fillText(`🔥 Ahorras ${formatearCOP(valorSinDescuento - precioFinal)}`, padding, yPos)
+            } else {
+              // Solo precio (grande, dorado)
+              ctx.fillStyle = '#D4AF37'
+              ctx.font = 'bold 48px Arial, sans-serif'
+              ctx.fillText(formatearCOP(precioFinal), padding, yPos)
+            }
+            
+            // Logo de la tienda (derecha inferior)
+            ctx.fillStyle = 'rgba(255,255,255,0.7)'
             ctx.font = 'italic 18px Arial, sans-serif'
-            ctx.fillText('Chic Import USA', padding, yPos)
+            ctx.textAlign = 'right'
+            ctx.fillText('Chic Import USA', anchoCanvas - padding, altoCanvas - 25)
+            ctx.textAlign = 'left'
             
             // Convertir a blob
             canvas.toBlob((blob) => {
               resolve(blob)
-            }, 'image/jpeg', 0.9)
+            }, 'image/jpeg', 0.92)
           }
           
           img.onerror = () => {
@@ -716,60 +766,104 @@ export default function ProductosPage() {
           
           img.src = producto.imagenes[0]
         } else {
-          // Sin imagen - solo texto
+          // Sin imagen - placeholder con estilo similar
           ctx.fillStyle = '#F3F4F6'
           ctx.fillRect(0, 0, anchoCanvas, altoImagen)
           
-          // Icono placeholder
           ctx.fillStyle = '#D1D5DB'
           ctx.font = '120px Arial'
           ctx.textAlign = 'center'
           ctx.fillText('📦', anchoCanvas / 2, altoImagen / 2 + 40)
           ctx.textAlign = 'left'
           
-          // Bloque blanco inferior
-          ctx.fillStyle = '#FFFFFF'
+          // Badge de descuento (si aplica)
+          if (tieneDescuento) {
+            ctx.fillStyle = '#EF4444'
+            ctx.beginPath()
+            ctx.roundRect(20, 20, 120, 50, 8)
+            ctx.fill()
+            ctx.fillStyle = '#FFFFFF'
+            ctx.font = 'bold 28px Arial, sans-serif'
+            ctx.textAlign = 'center'
+            ctx.fillText(`-${descuentoPorcentaje}%`, 80, 55)
+            ctx.textAlign = 'left'
+          }
+          
+          // Bloque inferior con gradiente azul
+          const gradient = ctx.createLinearGradient(0, altoImagen, 0, altoCanvas)
+          gradient.addColorStop(0, '#0f172a')
+          gradient.addColorStop(1, '#1e3a8a')
+          ctx.fillStyle = gradient
           ctx.fillRect(0, altoImagen, anchoCanvas, altoBloque)
           
-          // Textos
           const padding = 30
           let yPos = altoImagen + 40
           
-          ctx.fillStyle = '#111827'
-          ctx.font = 'bold 30px Arial, sans-serif'
-          ctx.fillText(producto.titulo, padding, yPos)
+          // Título
+          ctx.fillStyle = '#FFFFFF'
+          ctx.font = 'bold 28px Arial, sans-serif'
+          const titulo = producto.titulo.length > 40 
+            ? producto.titulo.substring(0, 40) + '...' 
+            : producto.titulo
+          ctx.fillText(titulo, padding, yPos)
           
           if (producto.marca) {
-            yPos += 38
-            ctx.fillStyle = '#6B7280'
-            ctx.font = '22px Arial, sans-serif'
-            ctx.fillText(`Marca: ${producto.marca}`, padding, yPos)
+            yPos += 32
+            ctx.fillStyle = 'rgba(255,255,255,0.7)'
+            ctx.font = '20px Arial, sans-serif'
+            ctx.fillText(producto.marca, padding, yPos)
           }
           
-          // Descripción
           if (producto.descripcion) {
-            yPos += 35
-            ctx.fillStyle = '#4B5563'
-            ctx.font = '18px Arial, sans-serif'
-            const descripcion = producto.descripcion.length > 80 
-              ? producto.descripcion.substring(0, 80) + '...' 
+            yPos += 30
+            ctx.fillStyle = 'rgba(255,255,255,0.6)'
+            ctx.font = '16px Arial, sans-serif'
+            const descripcion = producto.descripcion.length > 60 
+              ? producto.descripcion.substring(0, 60) + '...' 
               : producto.descripcion
             ctx.fillText(descripcion, padding, yPos)
           }
           
-          yPos += 50
-          ctx.fillStyle = '#D4AF37'
-          ctx.font = 'bold 44px Arial, sans-serif'
-          ctx.fillText(precio, padding, yPos)
+          yPos += 45
           
-          yPos += 38
-          ctx.fillStyle = '#9CA3AF'
+          if (tieneDescuento) {
+            ctx.fillStyle = 'rgba(255,255,255,0.5)'
+            ctx.font = '22px Arial, sans-serif'
+            const precioTachado = formatearCOP(valorSinDescuento)
+            ctx.fillText(precioTachado, padding, yPos)
+            
+            const textWidth = ctx.measureText(precioTachado).width
+            ctx.strokeStyle = 'rgba(255,255,255,0.5)'
+            ctx.lineWidth = 2
+            ctx.beginPath()
+            ctx.moveTo(padding, yPos - 8)
+            ctx.lineTo(padding + textWidth, yPos - 8)
+            ctx.stroke()
+            
+            yPos += 50
+            ctx.fillStyle = '#D4AF37'
+            ctx.font = 'bold 48px Arial, sans-serif'
+            ctx.fillText(formatearCOP(precioFinal), padding, yPos)
+            
+            yPos += 35
+            ctx.fillStyle = '#FEF08A'
+            ctx.font = 'bold 18px Arial, sans-serif'
+            ctx.fillText(`🔥 Ahorras ${formatearCOP(valorSinDescuento - precioFinal)}`, padding, yPos)
+          } else {
+            ctx.fillStyle = '#D4AF37'
+            ctx.font = 'bold 48px Arial, sans-serif'
+            ctx.fillText(formatearCOP(precioFinal), padding, yPos)
+          }
+          
+          ctx.fillStyle = 'rgba(255,255,255,0.7)'
           ctx.font = 'italic 18px Arial, sans-serif'
-          ctx.fillText('Chic Import USA', padding, yPos)
+          ctx.textAlign = 'right'
+          ctx.fillText('Chic Import USA', anchoCanvas - padding, altoCanvas - 25)
+          ctx.textAlign = 'left'
           
           canvas.toBlob((blob) => {
             resolve(blob)
-          }, 'image/jpeg', 0.9)
+          }, 'image/jpeg', 0.92)
         }
       } catch (error) {
         reject(error)
@@ -813,66 +907,6 @@ export default function ProductosPage() {
     } finally {
       setActionLoading(false)
     }
-  }
-
-  const handlePublicarProducto = async (producto) => {
-    setActionLoading(true)
-    try {
-      await supabase
-        .from('productos')
-        .update({ estado: 'publicado' })
-        .eq('id', producto.id)
-      cargarProductos()
-      cargarTotalesPorCategoria()
-    } catch (error) {
-      alert('Error: ' + error.message)
-    } finally {
-      setActionLoading(false)
-    }
-  }
-
-  const handleOcultarProducto = async (producto) => {
-    setActionLoading(true)
-    try {
-      await supabase
-        .from('productos')
-        .update({ estado: 'oculto' })
-        .eq('id', producto.id)
-      cargarProductos()
-      cargarTotalesPorCategoria()
-    } catch (error) {
-      alert('Error: ' + error.message)
-    } finally {
-      setActionLoading(false)
-    }
-  }
-
-  const getAccionesProducto = (estadoProducto, estadoLista) => {
-    const acciones = []
-    
-    // Productos en borrador: editar, eliminar, publicar (si lista publicada)
-    if (estadoProducto === 'borrador') {
-      acciones.push('editar')
-      acciones.push('eliminar')
-      if (estadoLista === 'publicada') {
-        acciones.push('publicar')
-      }
-    }
-    
-    // Productos publicados: compartir y ocultar
-    if (estadoProducto === 'publicado') {
-      acciones.push('compartir_whatsapp')
-      acciones.push('ocultar')
-    }
-    
-    // Productos ocultos: editar, eliminar, publicar (para volver a mostrar)
-    if (estadoProducto === 'oculto') {
-      acciones.push('editar')
-      acciones.push('eliminar')
-      acciones.push('publicar')
-    }
-
-    return acciones
   }
 
 
@@ -1082,8 +1116,6 @@ export default function ProductosPage() {
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {productosVisibles.map((producto, index) => {
-                const estadoInfo = ESTADOS_PRODUCTO[producto.estado] || ESTADOS_PRODUCTO.borrador
-                const acciones = getAccionesProducto(producto.estado, lista.estado)
                 const categoriaInfo = CATEGORIAS.find(c => c.value === producto.categoria)
 
                 return (
@@ -1107,9 +1139,6 @@ export default function ProductosPage() {
                           </svg>
                         </div>
                       )}
-                      <span className={`absolute top-3 right-3 badge ${estadoInfo.class}`}>
-                        {estadoInfo.label}
-                      </span>
                       {categoriaInfo && (
                         <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg text-xs font-medium">
                           {categoriaInfo.icon} {categoriaInfo.label}
@@ -1177,83 +1206,48 @@ export default function ProductosPage() {
                       </div>
 
                       {/* Acciones */}
-                      {acciones.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-neutrals-grayBorder">
-                          {acciones.includes('editar') && (
-                            <button
-                              onClick={() => handleEditarProducto(producto)}
-                              disabled={actionLoading}
-                              className="flex-1 action-item compact group justify-center"
-                            >
-                              <div className="action-icon" style={{ width: '28px', height: '28px', background: 'linear-gradient(135deg, #1e40af, #1e3a8a)' }}>
-                                <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                              </div>
-                              <span className="text-xs font-medium">Editar</span>
-                            </button>
-                          )}
-                          {acciones.includes('eliminar') && (
-                            <button
-                              onClick={() => handleEliminarProducto(producto)}
-                              disabled={actionLoading}
-                              className="flex-1 action-item compact group justify-center"
-                            >
-                              <div className="action-icon" style={{ width: '28px', height: '28px', background: 'linear-gradient(135deg, #dc2626, #b91c1c)' }}>
-                                <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                              </div>
-                              <span className="text-xs font-medium">Eliminar</span>
-                            </button>
-                          )}
-                          {acciones.includes('publicar') && (
-                            <button
-                              onClick={() => handlePublicarProducto(producto)}
-                              disabled={actionLoading}
-                              className="flex-1 action-item compact group justify-center"
-                            >
-                              <div className="action-icon success" style={{ width: '28px', height: '28px' }}>
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                              </div>
-                              <span className="text-xs font-medium">Publicar</span>
-                            </button>
-                          )}
-                          {acciones.includes('compartir_whatsapp') && (
-                            <button
-                              onClick={() => handleCompartirWhatsApp(producto)}
-                              className="flex-1 action-item compact group justify-center"
-                              style={{ 
-                                background: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)',
-                                border: 'none'
-                              }}
-                            >
-                              <div style={{ width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-                                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                                </svg>
-                              </div>
-                              <span className="text-xs font-medium text-white">Compartir</span>
-                            </button>
-                          )}
-                          {acciones.includes('ocultar') && (
-                            <button
-                              onClick={() => handleOcultarProducto(producto)}
-                              disabled={actionLoading}
-                              className="flex-1 action-item compact group justify-center"
-                            >
-                              <div className="action-icon warning" style={{ width: '28px', height: '28px' }}>
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                                </svg>
-                              </div>
-                              <span className="text-xs font-medium">Ocultar</span>
-                            </button>
-                          )}
-                        </div>
-                      )}
+                      <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-neutrals-grayBorder">
+                        <button
+                          onClick={() => handleEditarProducto(producto)}
+                          disabled={actionLoading}
+                          className="flex-1 action-item compact group justify-center"
+                        >
+                          <div className="action-icon" style={{ width: '28px', height: '28px', background: 'linear-gradient(135deg, #1e40af, #1e3a8a)' }}>
+                            <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </div>
+                          <span className="text-xs font-medium">Editar</span>
+                        </button>
+                        <button
+                          onClick={() => handleEliminarProducto(producto)}
+                          disabled={actionLoading}
+                          className="flex-1 action-item compact group justify-center"
+                        >
+                          <div className="action-icon" style={{ width: '28px', height: '28px', background: 'linear-gradient(135deg, #dc2626, #b91c1c)' }}>
+                            <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </div>
+                          <span className="text-xs font-medium">Eliminar</span>
+                        </button>
+                        <button
+                          onClick={() => handleCompartirWhatsApp(producto)}
+                          disabled={actionLoading}
+                          className="flex-1 action-item compact group justify-center"
+                          style={{ 
+                            background: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)',
+                            border: 'none'
+                          }}
+                        >
+                          <div style={{ width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                            </svg>
+                          </div>
+                          <span className="text-xs font-medium text-white">Compartir</span>
+                        </button>
+                      </div>
                     </div>
                   </article>
                 )
@@ -1393,93 +1387,6 @@ export default function ProductosPage() {
                       placeholder="Descripción opcional del producto"
                     />
                   </div>
-
-                  {/* Imágenes */}
-                  <div>
-                    <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
-                      Imágenes
-                    </label>
-                    <div className="border-2 border-dashed border-neutrals-grayBorder rounded-lg p-4">
-                      {/* Preview de imágenes */}
-                      {imagenesPreview.length > 0 && (
-                        <div className="grid grid-cols-4 gap-2 mb-4">
-                          {imagenesPreview.map((url, index) => (
-                            <div key={index} className="relative aspect-square">
-                              <img src={url} alt="" className="w-full h-full object-cover rounded-lg" />
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveImage(index)}
-                                className="absolute -top-2 -right-2 w-6 h-6 bg-feedback-error text-white rounded-full flex items-center justify-center text-xs"
-                              >
-                                ×
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Spinner de carga */}
-                      {uploadingImages && (
-                        <div className="flex flex-col items-center justify-center py-4">
-                          <div className="w-8 h-8 border-2 border-blue-elegant border-t-transparent rounded-full animate-spin mb-2"></div>
-                          <span className="text-sm text-neutrals-graySoft">Subiendo imagen...</span>
-                        </div>
-                      )}
-
-                      {/* Botones de acción */}
-                      {!uploadingImages && (
-                        <div className="flex flex-col sm:flex-row gap-3">
-                          {/* Botón Tomar Foto - Solo activo si hay cámara */}
-                          <label 
-                            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 transition-all ${
-                              hasCameraSupport
-                                ? 'border-blue-elegant bg-blue-elegant/5 text-blue-elegant cursor-pointer hover:bg-blue-elegant hover:text-white'
-                                : 'border-neutrals-grayBorder bg-neutrals-grayBg text-neutrals-graySoft cursor-not-allowed opacity-60'
-                            }`}
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                            <span className="font-medium text-sm">
-                              {hasCameraSupport ? 'Tomar Foto' : 'Cámara no disponible'}
-                            </span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              capture="environment"
-                              onChange={handleImageUpload}
-                              className="hidden"
-                              disabled={!hasCameraSupport || uploadingImages}
-                            />
-                          </label>
-
-                          {/* Botón Subir Imagen - Siempre activo */}
-                          <label className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 border-neutrals-grayBorder bg-white text-neutrals-grayStrong cursor-pointer hover:border-blue-elegant hover:bg-blue-elegant/5 hover:text-blue-elegant transition-all">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            <span className="font-medium text-sm">Subir Imagen</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              multiple
-                              onChange={handleImageUpload}
-                              className="hidden"
-                              disabled={uploadingImages}
-                            />
-                          </label>
-                        </div>
-                      )}
-
-                      {/* Texto de ayuda */}
-                      <p className="text-xs text-neutrals-graySoft text-center mt-3">
-                        {hasCameraSupport 
-                          ? 'Toma una foto o selecciona imágenes de tu dispositivo'
-                          : 'Selecciona imágenes de tu dispositivo'}
-                      </p>
-                    </div>
-                  </div>
                 </div>
 
                 {/* Columna Derecha - Precios */}
@@ -1525,54 +1432,46 @@ export default function ProductosPage() {
                     )}
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
-                      Margen de Ganancia
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        name="margen_porcentaje"
-                        value={formData.margen_porcentaje}
-                        onChange={handleChange}
-                        className="input-chic flex-1"
-                        placeholder="25"
-                        disabled={precioManual}
-                      />
-                      <span className="text-neutrals-grayStrong font-medium text-lg">%</span>
-                    </div>
-                  </div>
-
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={precioManual}
-                      onChange={(e) => setPrecioManual(e.target.checked)}
-                      className="w-4 h-4 rounded border-neutrals-grayBorder text-blue-elegant"
-                    />
-                    <span className="text-sm text-neutrals-grayStrong">Definir precio final manualmente</span>
-                  </label>
-
-                  {precioManual && (
+                  {/* Margen y Descuento */}
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
-                        Precio Final (COP)
+                        Margen de Ganancia
                       </label>
                       <div className="flex items-center gap-2">
-                        <span className="text-neutrals-grayStrong font-medium text-lg">$</span>
                         <input
                           type="number"
-                          name="precio_final_cop"
-                          value={formData.precio_final_cop}
+                          name="margen_porcentaje"
+                          value={formData.margen_porcentaje}
+                          onChange={handleChange}
+                          className="input-chic flex-1"
+                          placeholder="25"
+                        />
+                        <span className="text-neutrals-grayStrong font-medium">%</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                        Descuento
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          name="descuento_porcentaje"
+                          value={formData.descuento_porcentaje}
                           onChange={handleChange}
                           className="input-chic flex-1"
                           placeholder="0"
+                          min="0"
+                          max="100"
                         />
+                        <span className="text-neutrals-grayStrong font-medium">%</span>
                       </div>
                     </div>
-                  )}
+                  </div>
 
-                  {/* Resumen de cálculos */}
+                  {/* Resumen de cálculos - Usando Motor de Precios */}
                   {calculos && (
                     <div 
                       className="rounded-xl p-5 space-y-3"
@@ -1583,42 +1482,174 @@ export default function ProductosPage() {
                       <h5 className="font-semibold text-white text-sm mb-4">Resumen</h5>
                       
                       <div className="flex justify-between text-sm">
-                        <span className="text-white/70">Precio base:</span>
-                        <span className="text-white font-medium">${calculos.precioBaseUSD} USD</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-white/70">TAX estimado:</span>
-                        <span className="text-white font-medium">+ ${calculos.taxUSD} USD</span>
-                      </div>
-                      <div className="flex justify-between text-sm border-t border-white/10 pt-2 mt-2">
-                        <span className="text-white/70">Costo USD:</span>
-                        <span className="text-white font-semibold">${calculos.costoTotalUSD} USD</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-white/70">Costo COP:</span>
-                        <span className="text-white font-medium">{formatearCOP(calculos.costoTotalCOP)}</span>
+                        <span className="text-white/70">Precio + Tax (USD):</span>
+                        <span className="text-white font-medium">${calculos.precio_con_tax_usd}</span>
                       </div>
                       
-                      <div className="border-t border-white/20 pt-3 mt-3">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-white/70">Precio final:</span>
-                          <span 
-                            className="font-display text-2xl font-bold"
-                            style={{
-                              background: 'linear-gradient(135deg, #D4AF37, #f4d03f)',
-                              WebkitBackgroundClip: 'text',
-                              WebkitTextFillColor: 'transparent',
-                            }}
-                          >
-                            {formatearCOP(calculos.precioFinalCOP)}
-                          </span>
+                      {calculos.descuentoPorcentaje > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-white/70">- Descuento ({calculos.descuentoPorcentaje}%):</span>
+                          <span className="text-yellow-300 font-medium">-${(calculos.precio_con_tax_usd - calculos.costo_total_usd).toFixed(2)} USD</span>
                         </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-white/70">Ganancia ({calculos.margenReal}%):</span>
-                          <span className="font-display text-xl font-bold text-green-400">
-                            {formatearCOP(calculos.gananciaCOP)}
-                          </span>
-                        </div>
+                      )}
+                      
+                      <div className="flex justify-between text-sm border-t border-white/10 pt-2 mt-2">
+                        <span className="text-white/70">Costo final (COP):</span>
+                        <span className="text-white font-medium">{formatearCOP(calculos.costo_total_cop)}</span>
+                      </div>
+                      
+                      <div className="flex justify-between items-center">
+                        <span className="text-white/70">+ Margen ({formData.margen_porcentaje}%):</span>
+                        <span className="text-white font-medium">{formatearCOP(calculos.precio_sugerido_cop - calculos.costo_total_cop)}</span>
+                      </div>
+                      
+                      {calculos.descuentoPorcentaje > 0 ? (
+                        <>
+                          <div className="flex justify-between items-center pt-2 border-t border-white/20">
+                            <span className="text-white/70">Valor sin descuento:</span>
+                            <span className="text-white/60 line-through text-sm">
+                              {formatearCOP(calculos.valor_producto_cop)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center bg-white/20 rounded-lg p-2 -mx-1">
+                            <span className="text-white font-medium text-sm">
+                              🔥 Precio con -{calculos.descuentoPorcentaje}%
+                            </span>
+                            <span 
+                              className="font-display text-2xl font-bold"
+                              style={{
+                                background: 'linear-gradient(135deg, #D4AF37, #f4d03f)',
+                                WebkitBackgroundClip: 'text',
+                                WebkitTextFillColor: 'transparent',
+                              }}
+                            >
+                              {formatearCOP(calculos.precio_final_cop)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-white/70">Cliente ahorra:</span>
+                            <span className="text-yellow-300 font-bold">
+                              {formatearCOP(calculos.descuento_cop)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center pt-2 border-t border-white/20">
+                            <span className="text-white/70">Tu ganancia:</span>
+                            <span className={`font-display text-xl font-bold ${calculos.ganancia_cop >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                              {formatearCOP(calculos.ganancia_cop)}
+                            </span>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="border-t border-white/20 pt-3 mt-3">
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="text-white/70">Precio final:</span>
+                              <span 
+                                className="font-display text-2xl font-bold"
+                                style={{
+                                  background: 'linear-gradient(135deg, #D4AF37, #f4d03f)',
+                                  WebkitBackgroundClip: 'text',
+                                  WebkitTextFillColor: 'transparent',
+                                }}
+                              >
+                                {formatearCOP(calculos.precio_final_cop)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-white/70">Ganancia:</span>
+                              <span className="font-display text-xl font-bold text-green-400">
+                                {formatearCOP(calculos.ganancia_cop)}
+                              </span>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Imagen - Se muestra después de calcular precios */}
+                  {calculos && (
+                    <div>
+                      <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                        📷 Imágenes del Producto
+                      </label>
+                      <div className="border-2 border-dashed border-neutrals-grayBorder rounded-lg p-4">
+                        {/* Preview de imágenes */}
+                        {imagenesPreview.length > 0 && (
+                          <div className="grid grid-cols-4 gap-2 mb-4">
+                            {imagenesPreview.map((url, index) => (
+                              <div key={index} className="relative aspect-square">
+                                <img src={url} alt="" className="w-full h-full object-cover rounded-lg" />
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveImage(index)}
+                                  className="absolute -top-2 -right-2 w-6 h-6 bg-feedback-error text-white rounded-full flex items-center justify-center text-xs"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Spinner de carga */}
+                        {uploadingImages && (
+                          <div className="flex flex-col items-center justify-center py-4">
+                            <div className="w-8 h-8 border-2 border-blue-elegant border-t-transparent rounded-full animate-spin mb-2"></div>
+                            <span className="text-sm text-neutrals-graySoft">Subiendo imagen...</span>
+                          </div>
+                        )}
+
+                        {/* Botones de acción */}
+                        {!uploadingImages && (
+                          <div className="flex flex-col sm:flex-row gap-3">
+                            {/* Botón Tomar Foto */}
+                            <label 
+                              className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 transition-all ${
+                                hasCameraSupport
+                                  ? 'border-blue-elegant bg-blue-elegant/5 text-blue-elegant cursor-pointer hover:bg-blue-elegant hover:text-white'
+                                  : 'border-neutrals-grayBorder bg-neutrals-grayBg text-neutrals-graySoft cursor-not-allowed opacity-60'
+                              }`}
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                              <span className="font-medium text-sm">Tomar Foto</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                onChange={handleImageUpload}
+                                className="hidden"
+                                disabled={!hasCameraSupport || uploadingImages}
+                              />
+                            </label>
+
+                            {/* Botón Subir Imagen */}
+                            <label className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 border-neutrals-grayBorder bg-white text-neutrals-grayStrong cursor-pointer hover:border-blue-elegant hover:bg-blue-elegant/5 hover:text-blue-elegant transition-all">
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              <span className="font-medium text-sm">Subir Imagen</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                onChange={handleImageUpload}
+                                className="hidden"
+                                disabled={uploadingImages}
+                              />
+                            </label>
+                          </div>
+                        )}
+
+                        {/* Texto de ayuda */}
+                        <p className="text-xs text-neutrals-graySoft text-center mt-3">
+                          {hasCameraSupport 
+                            ? 'Toma una foto o selecciona imágenes de tu dispositivo'
+                            : 'Selecciona imágenes de tu dispositivo'}
+                        </p>
                       </div>
                     </div>
                   )}
