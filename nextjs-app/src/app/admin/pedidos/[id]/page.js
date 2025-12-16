@@ -37,20 +37,6 @@ export default function DetallePedidoPage() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
-  
-  // Modal agregar item
-  const [showModalItem, setShowModalItem] = useState(false)
-  const [busquedaProducto, setBusquedaProducto] = useState('')
-  const [productosEncontrados, setProductosEncontrados] = useState([])
-  const [buscandoProductos, setBuscandoProductos] = useState(false)
-  const [productoSeleccionado, setProductoSeleccionado] = useState(null)
-  const [nuevoItem, setNuevoItem] = useState({
-    cantidad: 1,
-    precio_venta_cop: '',
-    talla: '',
-    genero: '',
-    descripcion_detallada: ''
-  })
 
   // Modal editar fechas/estado
   const [showModalEditar, setShowModalEditar] = useState(false)
@@ -68,18 +54,6 @@ export default function DetallePedidoPage() {
       cargarItems()
     }
   }, [pedidoId])
-
-  // Buscar productos
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (busquedaProducto.trim().length >= 2) {
-        buscarProductos()
-      } else {
-        setProductosEncontrados([])
-      }
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [busquedaProducto])
 
   const checkAuth = async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -123,96 +97,6 @@ export default function DetallePedidoPage() {
       setItems(data || [])
     } catch (error) {
       console.error('Error cargando items:', error)
-    }
-  }
-
-  const buscarProductos = async () => {
-    setBuscandoProductos(true)
-    try {
-      const { data, error } = await supabase
-        .from('productos')
-        .select('id, titulo, precio_final_cop, costo_total_cop, imagenes, categoria, marca')
-        .or(`titulo.ilike.%${busquedaProducto}%,marca.ilike.%${busquedaProducto}%`)
-        .eq('estado', 'publicado')
-        .limit(10)
-
-      if (error) throw error
-      setProductosEncontrados(data || [])
-    } catch (error) {
-      console.error('Error buscando productos:', error)
-    } finally {
-      setBuscandoProductos(false)
-    }
-  }
-
-  const seleccionarProducto = (producto) => {
-    setProductoSeleccionado(producto)
-    setNuevoItem(prev => ({
-      ...prev,
-      precio_venta_cop: producto.precio_final_cop?.toString() || ''
-    }))
-    setBusquedaProducto('')
-    setProductosEncontrados([])
-  }
-
-  const agregarItem = async () => {
-    if (!productoSeleccionado && !busquedaProducto.trim()) {
-      alert('Debe seleccionar un producto o ingresar un título')
-      return
-    }
-
-    if (!nuevoItem.precio_venta_cop) {
-      alert('El precio de venta es requerido')
-      return
-    }
-
-    setActionLoading(true)
-    try {
-      const precioVenta = parseFloat(nuevoItem.precio_venta_cop)
-      const costoCop = productoSeleccionado?.costo_total_cop || 0
-      const cantidad = parseInt(nuevoItem.cantidad) || 1
-
-      const itemData = {
-        pedido_id: pedidoId,
-        producto_id: productoSeleccionado?.id || null,
-        lista_oferta_id: pedido.lista_oferta_id || null,
-        titulo_articulo: productoSeleccionado?.titulo || busquedaProducto.trim(),
-        cantidad: cantidad,
-        precio_venta_cop: precioVenta,
-        costo_cop: costoCop,
-        ganancia_cop: (precioVenta - costoCop) * cantidad,
-        fue_encontrado: false,
-        talla: nuevoItem.talla.trim() || null,
-        genero: nuevoItem.genero || null,
-        descripcion_detallada: nuevoItem.descripcion_detallada.trim() || null,
-        estado_item: 'solicitado'
-      }
-
-      const { error } = await supabase
-        .from('pedido_items')
-        .insert([itemData])
-
-      if (error) throw error
-
-      // Recargar items y recalcular totales
-      await cargarItems()
-      await recalcularTotales()
-      
-      // Resetear modal
-      setShowModalItem(false)
-      setProductoSeleccionado(null)
-      setBusquedaProducto('')
-      setNuevoItem({
-        cantidad: 1,
-        precio_venta_cop: '',
-        talla: '',
-        genero: '',
-        descripcion_detallada: ''
-      })
-    } catch (error) {
-      alert('Error al agregar item: ' + error.message)
-    } finally {
-      setActionLoading(false)
     }
   }
 
@@ -523,15 +407,6 @@ export default function DetallePedidoPage() {
                 <h3 className="font-semibold text-neutrals-black flex items-center gap-2">
                   <span>📦</span> Artículos ({items.length})
                 </h3>
-                <button
-                  onClick={() => setShowModalItem(true)}
-                  className="btn-primary btn-sm flex items-center gap-1"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  Agregar
-                </button>
               </div>
 
               {/* Lista de Items */}
@@ -542,13 +417,10 @@ export default function DetallePedidoPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                     </svg>
                   </div>
-                  <p className="text-neutrals-graySoft mb-4">No hay artículos en este pedido</p>
-                  <button
-                    onClick={() => setShowModalItem(true)}
-                    className="btn-primary"
-                  >
-                    Agregar Primer Artículo
-                  </button>
+                  <p className="text-neutrals-graySoft mb-2">No hay artículos en este pedido</p>
+                  <p className="text-sm text-neutrals-graySoft">
+                    Para agregar artículos, ve a una <strong>Lista de Productos</strong> y usa el botón "Agregar a Pedido"
+                  </p>
                 </div>
               ) : (
                 <div className="divide-y divide-neutrals-grayBorder">
@@ -636,195 +508,6 @@ export default function DetallePedidoPage() {
           </div>
         </div>
       </main>
-
-      {/* Modal Agregar Item */}
-      {showModalItem && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="card-premium max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center p-5 border-b border-neutrals-grayBorder sticky top-0 bg-white">
-              <h3 className="font-display text-lg font-semibold">Agregar Artículo</h3>
-              <button onClick={() => { setShowModalItem(false); setProductoSeleccionado(null); setBusquedaProducto(''); }}>
-                <svg className="w-6 h-6 text-neutrals-graySoft" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="p-5 space-y-5">
-              {/* Buscar producto */}
-              {!productoSeleccionado ? (
-                <div>
-                  <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
-                    Buscar Producto
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={busquedaProducto}
-                      onChange={(e) => setBusquedaProducto(e.target.value)}
-                      className="input-chic pl-10"
-                      placeholder="Nombre del producto o artículo..."
-                    />
-                    <svg className="w-5 h-5 text-neutrals-graySoft absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                  </div>
-
-                  {/* Resultados */}
-                  {productosEncontrados.length > 0 && (
-                    <div className="mt-2 border border-neutrals-grayBorder rounded-xl max-h-60 overflow-y-auto">
-                      {productosEncontrados.map((producto) => (
-                        <button
-                          key={producto.id}
-                          onClick={() => seleccionarProducto(producto)}
-                          className="w-full flex items-center gap-3 p-3 hover:bg-neutrals-grayBg transition-colors text-left border-b last:border-b-0"
-                        >
-                          <div className="w-12 h-12 rounded-lg bg-neutrals-grayBg overflow-hidden">
-                            {producto.imagenes?.[0] ? (
-                              <img src={producto.imagenes[0]} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">📦</div>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-neutrals-black truncate">{producto.titulo}</p>
-                            <p className="text-sm text-neutrals-graySoft">
-                              {formatearCOP(producto.precio_final_cop)}
-                              {producto.marca && ` • ${producto.marca}`}
-                            </p>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  <p className="text-xs text-neutrals-graySoft mt-2">
-                    💡 Puedes buscar un producto o escribir directamente el nombre del artículo
-                  </p>
-                </div>
-              ) : (
-                <div className="bg-green-50 border border-green-200 rounded-xl p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-lg bg-white overflow-hidden">
-                        {productoSeleccionado.imagenes?.[0] ? (
-                          <img src={productoSeleccionado.imagenes[0]} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">📦</div>
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-medium text-neutrals-black">{productoSeleccionado.titulo}</p>
-                        <p className="text-sm text-neutrals-graySoft">
-                          Costo: {formatearCOP(productoSeleccionado.costo_total_cop)}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setProductoSeleccionado(null)}
-                      className="text-sm text-red-600 hover:underline"
-                    >
-                      Cambiar
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Cantidad y Precio */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
-                    Cantidad
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={nuevoItem.cantidad}
-                    onChange={(e) => setNuevoItem(prev => ({ ...prev, cantidad: e.target.value }))}
-                    className="input-chic"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
-                    Precio Venta (COP) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    value={nuevoItem.precio_venta_cop}
-                    onChange={(e) => setNuevoItem(prev => ({ ...prev, precio_venta_cop: e.target.value }))}
-                    className="input-chic"
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-
-              {/* Talla y Género */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
-                    Talla
-                  </label>
-                  <input
-                    type="text"
-                    value={nuevoItem.talla}
-                    onChange={(e) => setNuevoItem(prev => ({ ...prev, talla: e.target.value }))}
-                    className="input-chic"
-                    placeholder="M, L, 42, etc."
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
-                    Género
-                  </label>
-                  <select
-                    value={nuevoItem.genero}
-                    onChange={(e) => setNuevoItem(prev => ({ ...prev, genero: e.target.value }))}
-                    className="input-chic"
-                  >
-                    <option value="">Seleccionar...</option>
-                    <option value="hombre">Hombre</option>
-                    <option value="mujer">Mujer</option>
-                    <option value="unisex">Unisex</option>
-                    <option value="nino">Niño</option>
-                    <option value="nina">Niña</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Descripción */}
-              <div>
-                <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
-                  Descripción Detallada
-                </label>
-                <textarea
-                  value={nuevoItem.descripcion_detallada}
-                  onChange={(e) => setNuevoItem(prev => ({ ...prev, descripcion_detallada: e.target.value }))}
-                  rows={2}
-                  className="input-chic resize-none"
-                  placeholder="Color, características especiales, etc."
-                />
-              </div>
-
-              {/* Botones */}
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => { setShowModalItem(false); setProductoSeleccionado(null); }}
-                  className="flex-1 btn-secondary"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={agregarItem}
-                  disabled={actionLoading}
-                  className="flex-1 btn-primary"
-                >
-                  {actionLoading ? 'Agregando...' : 'Agregar Artículo'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Modal Editar Pedido */}
       {showModalEditar && (

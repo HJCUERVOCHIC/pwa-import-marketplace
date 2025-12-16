@@ -6,6 +6,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import AdminLayout from '@/components/AdminLayout'
+import ModalAgregarAPedido from '@/components/ModalAgregarAPedido'
 // Motor Unificado de Cálculo de Precios - ÚNICA fuente de verdad
 import { calculatePricing, crearPricingInput, formatearCOP } from '@/lib/pricingEngine'
 
@@ -168,6 +169,7 @@ export default function ProductosPage() {
   const [productos, setProductos] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [showTipoProductoModal, setShowTipoProductoModal] = useState(false) // Modal selección tipo
   const [modoEdicion, setModoEdicion] = useState(false)
   const [productoEditando, setProductoEditando] = useState(null)
   const [actionLoading, setActionLoading] = useState(false)
@@ -182,6 +184,28 @@ export default function ProductosPage() {
   const [showAll, setShowAll] = useState(false)
   const [totalPorCategoria, setTotalPorCategoria] = useState({})
   const [totalPublicados, setTotalPublicados] = useState(0)
+
+  // Estados para modal de agregar a pedido
+  const [showModalPedido, setShowModalPedido] = useState(false)
+  const [productoParaPedido, setProductoParaPedido] = useState(null)
+
+  // ============================================
+  // ESTADOS PARA PRODUCTO RÁPIDO
+  // ============================================
+  const [showModalRapido, setShowModalRapido] = useState(false)
+  const [consecutivoActual, setConsecutivoActual] = useState(1)
+  const [formDataRapido, setFormDataRapido] = useState({
+    imagenes: [],
+    precio_base_usd: '',
+    margen_porcentaje: '25',
+    descuento_porcentaje: '0'
+  })
+  const [errorsRapido, setErrorsRapido] = useState({})
+  const [calculosRapido, setCalculosRapido] = useState(null)
+  const [imagenesPreviewRapido, setImagenesPreviewRapido] = useState([])
+  const [uploadingImagesRapido, setUploadingImagesRapido] = useState(false)
+  const [modoEdicionRapido, setModoEdicionRapido] = useState(false)
+  const [productoEditandoRapido, setProductoEditandoRapido] = useState(null)
 
   const [formData, setFormData] = useState({
     titulo: '',
@@ -206,6 +230,7 @@ export default function ProductosPage() {
     if (lista) {
       cargarProductos()
       cargarTotalesPorCategoria()
+      cargarUltimoConsecutivo() // Cargar consecutivo para productos rápidos
     }
   }, [lista, categoriaFiltro])
 
@@ -214,6 +239,13 @@ export default function ProductosPage() {
       calcularValores()
     }
   }, [formData.precio_base_usd, formData.margen_porcentaje, formData.descuento_porcentaje, lista])
+
+  // useEffect para calcular valores de producto rápido
+  useEffect(() => {
+    if (formDataRapido.precio_base_usd && lista) {
+      calcularValoresRapido()
+    }
+  }, [formDataRapido.precio_base_usd, formDataRapido.margen_porcentaje, formDataRapido.descuento_porcentaje, lista])
 
   // Detectar si es dispositivo móvil y si tiene cámara
   useEffect(() => {
@@ -368,6 +400,241 @@ export default function ProductosPage() {
       tiene_descuento: resultado.tiene_descuento
     })
   }
+
+  // ============================================
+  // FUNCIONES PARA PRODUCTO RÁPIDO
+  // ============================================
+
+  const cargarUltimoConsecutivo = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('productos')
+        .select('titulo')
+        .eq('id_lista', idLista)
+        .like('titulo', 'PROD-%')
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      if (error) throw error
+
+      if (data && data.length > 0) {
+        const ultimoTitulo = data[0].titulo
+        const match = ultimoTitulo.match(/PROD-(\d+)/)
+        if (match) {
+          setConsecutivoActual(parseInt(match[1]) + 1)
+        }
+      }
+    } catch (error) {
+      console.error('Error cargando consecutivo:', error)
+    }
+  }
+
+  const generarTituloConsecutivo = () => {
+    return `PROD-${String(consecutivoActual).padStart(4, '0')}`
+  }
+
+  const calcularValoresRapido = () => {
+    if (!lista || !formDataRapido.precio_base_usd) return
+
+    const pricingInput = crearPricingInput({
+      lista,
+      precio_base_usd: parseFloat(formDataRapido.precio_base_usd),
+      margen_porcentaje: parseFloat(formDataRapido.margen_porcentaje) || 0,
+      descuento_porcentaje: parseFloat(formDataRapido.descuento_porcentaje) || 0,
+      precio_final_manual_cop: null
+    })
+
+    const resultado = calculatePricing(pricingInput)
+
+    if (!resultado.valid) {
+      console.error('Error en cálculo de precios:', resultado.error)
+      return
+    }
+
+    setCalculosRapido({
+      precio_con_tax_usd: resultado.precio_con_tax_usd,
+      costo_total_usd: resultado.costo_total_usd,
+      costo_total_cop: resultado.costo_total_cop,
+      precio_sugerido_cop: resultado.precio_sugerido_cop,
+      precio_final_cop: resultado.precio_final_cop,
+      ganancia_cop: resultado.ganancia_cop,
+      valor_producto_cop: resultado.valor_producto_cop,
+      descuento_cop: resultado.descuento_cop,
+      descuentoPorcentaje: parseFloat(formDataRapido.descuento_porcentaje) || 0,
+      tiene_descuento: resultado.tiene_descuento
+    })
+  }
+
+  const handleChangeRapido = (e) => {
+    const { name, value } = e.target
+    setFormDataRapido(prev => ({ ...prev, [name]: value }))
+    
+    if (errorsRapido[name]) {
+      setErrorsRapido(prev => ({ ...prev, [name]: null }))
+    }
+  }
+
+  const validarFormularioRapido = () => {
+    const newErrors = {}
+    if (!formDataRapido.precio_base_usd || parseFloat(formDataRapido.precio_base_usd) <= 0) {
+      newErrors.precio_base_usd = 'El precio base debe ser mayor a 0'
+    }
+    if (formDataRapido.imagenes.length === 0) {
+      newErrors.imagenes = 'Debes agregar al menos una imagen'
+    }
+    setErrorsRapido(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const handleImageUploadRapido = async (e) => {
+    const files = Array.from(e.target.files)
+    if (files.length === 0) return
+
+    setUploadingImagesRapido(true)
+    const nuevasUrls = []
+
+    try {
+      for (const file of files) {
+        let fileExt = file.name.split('.').pop()
+        
+        if (!fileExt || fileExt === file.name) {
+          const mimeToExt = {
+            'image/jpeg': 'jpg',
+            'image/jpg': 'jpg',
+            'image/png': 'png',
+            'image/gif': 'gif',
+            'image/webp': 'webp',
+            'image/heic': 'heic',
+            'image/heif': 'heif'
+          }
+          fileExt = mimeToExt[file.type] || 'jpg'
+        }
+
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+        const filePath = `productos/${fileName}`
+
+        const { error: uploadError } = await supabase.storage
+          .from('productos-imagenes')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false
+          })
+
+        if (uploadError) throw uploadError
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('productos-imagenes')
+          .getPublicUrl(filePath)
+
+        nuevasUrls.push(publicUrl)
+      }
+
+      setFormDataRapido(prev => ({
+        ...prev,
+        imagenes: [...prev.imagenes, ...nuevasUrls]
+      }))
+      setImagenesPreviewRapido(prev => [...prev, ...nuevasUrls])
+      
+      e.target.value = ''
+    } catch (error) {
+      console.error('Error subiendo imágenes:', error)
+      alert('Error al subir imágenes: ' + error.message)
+    } finally {
+      setUploadingImagesRapido(false)
+    }
+  }
+
+  const handleRemoveImageRapido = (index) => {
+    setFormDataRapido(prev => ({
+      ...prev,
+      imagenes: prev.imagenes.filter((_, i) => i !== index)
+    }))
+    setImagenesPreviewRapido(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const handleSubmitRapido = async (e) => {
+    e.preventDefault()
+    if (!validarFormularioRapido()) return
+
+    if (!calculosRapido || !calculosRapido.precio_final_cop) {
+      alert('Error: No se pudieron calcular los precios. Verifica los datos ingresados.')
+      return
+    }
+
+    setActionLoading(true)
+    try {
+      const tituloAutomatico = modoEdicionRapido ? productoEditandoRapido.titulo : generarTituloConsecutivo()
+      
+      const datosProducto = {
+        titulo: tituloAutomatico,
+        marca: null,
+        categoria: 'otros',
+        descripcion: null,
+        imagenes: formDataRapido.imagenes,
+        estado: 'publicado',
+        
+        precio_base_usd: parseFloat(formDataRapido.precio_base_usd),
+        margen_porcentaje: parseFloat(formDataRapido.margen_porcentaje) || null,
+        
+        costo_total_usd: calculosRapido.costo_total_usd,
+        costo_total_cop: calculosRapido.costo_total_cop,
+        precio_sugerido_cop: calculosRapido.precio_sugerido_cop,
+        precio_final_cop: calculosRapido.precio_final_cop,
+        ganancia_cop: calculosRapido.ganancia_cop,
+        valor_producto_cop: calculosRapido.valor_producto_cop,
+      }
+
+      let error
+
+      if (modoEdicionRapido && productoEditandoRapido) {
+        const resultado = await supabase
+          .from('productos')
+          .update(datosProducto)
+          .eq('id', productoEditandoRapido.id)
+        
+        error = resultado.error
+      } else {
+        const resultado = await supabase
+          .from('productos')
+          .insert([{ ...datosProducto, id_lista: idLista }])
+        
+        error = resultado.error
+        
+        if (!error) {
+          setConsecutivoActual(prev => prev + 1)
+        }
+      }
+
+      if (error) throw error
+
+      setShowModalRapido(false)
+      resetFormRapido()
+      cargarProductos()
+      cargarTotalesPorCategoria()
+    } catch (error) {
+      alert(`Error al ${modoEdicionRapido ? 'actualizar' : 'crear'} producto: ` + error.message)
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const resetFormRapido = () => {
+    setFormDataRapido({
+      imagenes: [],
+      precio_base_usd: '',
+      margen_porcentaje: '25',
+      descuento_porcentaje: '0'
+    })
+    setErrorsRapido({})
+    setCalculosRapido(null)
+    setImagenesPreviewRapido([])
+    setModoEdicionRapido(false)
+    setProductoEditandoRapido(null)
+  }
+
+  // ============================================
+  // FIN FUNCIONES PRODUCTO RÁPIDO
+  // ============================================
 
 
   // handleChange simplificado - ya NO resetea marca al cambiar categoría
@@ -909,6 +1176,33 @@ export default function ProductosPage() {
     }
   }
 
+  // Función para abrir modal de agregar a pedido
+  // REGLA: Solo productos publicados de listas publicadas
+  const handleAgregarAPedido = (producto) => {
+    // Validación previa en UI (el modal también valida)
+    if (producto.estado !== 'publicado') {
+      alert('Solo se pueden agregar productos publicados a pedidos.')
+      return
+    }
+    if (lista?.estado !== 'publicada') {
+      alert('Solo se pueden agregar productos de listas publicadas.')
+      return
+    }
+    setProductoParaPedido(producto)
+    setShowModalPedido(true)
+  }
+
+  // Callback cuando se agrega exitosamente a un pedido
+  const handlePedidoSuccess = (pedidoId, accion) => {
+    if (accion === 'pedido_creado') {
+      alert('✅ Pedido creado exitosamente')
+    } else if (accion === 'item_agregado') {
+      alert('✅ Producto agregado al pedido')
+    } else if (accion === 'cantidad_incrementada') {
+      alert('✅ Cantidad incrementada en el pedido')
+    }
+  }
+
 
   const listaModificable = lista?.estado === 'borrador' || lista?.estado === 'publicada'
   const productosVisibles = showAll ? productos : productos.slice(0, ITEMS_PER_PAGE)
@@ -997,7 +1291,7 @@ export default function ProductosPage() {
             {listaModificable && (
               <div className="mt-6 flex justify-end">
                 <button
-                  onClick={() => { resetForm(); setShowModal(true); }}
+                  onClick={() => setShowTipoProductoModal(true)}
                   className="btn-primary flex items-center gap-2"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1104,7 +1398,7 @@ export default function ProductosPage() {
               </p>
               {listaModificable && (
                 <button
-                  onClick={() => { resetForm(); setShowModal(true); }}
+                  onClick={() => setShowTipoProductoModal(true)}
                   className="btn-primary"
                 >
                   Agregar Producto
@@ -1247,6 +1541,26 @@ export default function ProductosPage() {
                           </div>
                           <span className="text-xs font-medium text-white">Compartir</span>
                         </button>
+                        
+                        {/* Botón Agregar a Pedido - Solo si producto publicado Y lista publicada */}
+                        {producto.estado === 'publicado' && lista?.estado === 'publicada' && (
+                          <button
+                            onClick={() => handleAgregarAPedido(producto)}
+                            disabled={actionLoading}
+                            className="flex-1 action-item compact group justify-center"
+                            style={{ 
+                              background: 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)',
+                              border: 'none'
+                            }}
+                          >
+                            <div style={{ width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                              </svg>
+                            </div>
+                            <span className="text-xs font-medium text-white">Pedido</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   </article>
@@ -1672,6 +1986,418 @@ export default function ProductosPage() {
                   {actionLoading ? 'Guardando...' : (modoEdicion ? 'Guardar Cambios' : 'Agregar Producto')}
                 </button>
               </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Agregar a Pedido */}
+      <ModalAgregarAPedido
+        isOpen={showModalPedido}
+        onClose={() => {
+          setShowModalPedido(false)
+          setProductoParaPedido(null)
+        }}
+        producto={productoParaPedido}
+        lista={lista}
+        onSuccess={handlePedidoSuccess}
+      />
+
+      {/* Modal Selección Tipo de Producto */}
+      {showTipoProductoModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full animate-fade-in-up shadow-xl">
+            <div className="flex justify-between items-center p-6 border-b border-neutrals-grayBorder">
+              <div>
+                <h3 className="font-display text-xl font-semibold text-neutrals-black">
+                  Agregar Producto
+                </h3>
+                <p className="text-sm text-neutrals-graySoft mt-1">
+                  {lista?.titulo}
+                </p>
+              </div>
+              <button 
+                onClick={() => setShowTipoProductoModal(false)}
+                className="text-neutrals-graySoft hover:text-neutrals-black"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-neutrals-grayStrong text-center mb-4">
+                Selecciona el tipo de producto a agregar:
+              </p>
+
+              {/* Opción Producto Normal */}
+              <button
+                onClick={() => {
+                  setShowTipoProductoModal(false)
+                  resetForm()
+                  setShowModal(true)
+                }}
+                className="block w-full p-4 rounded-xl border-2 border-neutrals-grayBorder hover:border-blue-elegant hover:bg-blue-elegant/5 transition-all group text-left"
+              >
+                <div className="flex items-center gap-4">
+                  <div 
+                    className="w-14 h-14 rounded-xl flex items-center justify-center"
+                    style={{ background: 'linear-gradient(135deg, #1e40af, #1e3a8a)' }}
+                  >
+                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-display text-lg font-semibold text-neutrals-black group-hover:text-blue-elegant">
+                      Producto Completo
+                    </h4>
+                    <p className="text-sm text-neutrals-graySoft">
+                      Con título, descripción y detalles
+                    </p>
+                  </div>
+                  <svg className="w-5 h-5 text-neutrals-graySoft group-hover:translate-x-1 group-hover:text-blue-elegant transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </button>
+
+              {/* Opción Producto Rápido */}
+              <button
+                onClick={() => {
+                  setShowTipoProductoModal(false)
+                  resetFormRapido()
+                  setShowModalRapido(true)
+                }}
+                className="block w-full p-4 rounded-xl border-2 border-neutrals-grayBorder hover:border-orange-500 hover:bg-orange-50 transition-all group text-left"
+              >
+                <div className="flex items-center gap-4">
+                  <div 
+                    className="w-14 h-14 rounded-xl flex items-center justify-center"
+                    style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
+                  >
+                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-display text-lg font-semibold text-neutrals-black group-hover:text-orange-600">
+                        Producto Rápido
+                      </h4>
+                      <span className="bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                        ⚡ NUEVO
+                      </span>
+                    </div>
+                    <p className="text-sm text-neutrals-graySoft">
+                      Solo imagen, precio y descuento
+                    </p>
+                  </div>
+                  <svg className="w-5 h-5 text-neutrals-graySoft group-hover:translate-x-1 group-hover:text-orange-500 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </button>
+
+              {/* Info adicional */}
+              <div className="bg-neutrals-grayBg rounded-lg p-4 mt-4">
+                <h5 className="font-semibold text-sm text-neutrals-black mb-2">Diferencias:</h5>
+                <div className="space-y-2 text-xs text-neutrals-grayStrong">
+                  <div className="flex items-start gap-2">
+                    <span className="text-blue-elegant">●</span>
+                    <span><strong>Completo:</strong> Nombre, descripción, marca, imagen editada para WhatsApp</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-orange-500">●</span>
+                    <span><strong>Rápido:</strong> Código automático, imagen original, descuentos, solo precios en WhatsApp</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Producto Rápido */}
+      {showModalRapido && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="card-premium max-w-lg w-full max-h-[90vh] flex flex-col animate-fade-in-up">
+            {/* Header del Modal */}
+            <div className="flex justify-between items-center p-4 sm:p-6 border-b border-neutrals-grayBorder bg-white rounded-t-chic flex-shrink-0">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-display text-lg sm:text-xl font-semibold text-neutrals-black">
+                    {modoEdicionRapido ? 'Editar Producto' : 'Nuevo Producto'}
+                  </h3>
+                  <span className="bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                    ⚡
+                  </span>
+                </div>
+                <p className="text-xs sm:text-sm text-neutrals-graySoft">
+                  {modoEdicionRapido 
+                    ? `Editando: ${productoEditandoRapido?.titulo}` 
+                    : `Código: ${generarTituloConsecutivo()}`}
+                </p>
+              </div>
+              <button 
+                onClick={() => { setShowModalRapido(false); resetFormRapido(); }} 
+                className="text-neutrals-graySoft hover:text-neutrals-black flex-shrink-0"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Contenido del Modal */}
+            <div className="overflow-y-auto flex-1">
+              <form onSubmit={handleSubmitRapido} className="p-4 sm:p-6 space-y-5">
+
+                {/* Info de la lista */}
+                <div className="bg-neutrals-grayBg rounded-lg p-3 flex justify-between text-sm">
+                  <span className="text-neutrals-graySoft">TRM: <strong className="text-neutrals-black">${lista?.trm_lista?.toLocaleString('es-CO')}</strong></span>
+                  <span className="text-neutrals-graySoft">TAX: <strong className="text-neutrals-black">
+                    {lista?.tax_modo_lista === 'porcentaje' 
+                      ? `${lista?.tax_porcentaje_lista}%` 
+                      : `$${lista?.tax_usd_lista} USD`}
+                  </strong></span>
+                </div>
+
+                {/* Precio Base */}
+                <div>
+                  <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                    Precio Base (USD) <span className="text-feedback-error">*</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-neutrals-grayStrong font-medium text-lg">$</span>
+                    <input
+                      type="number"
+                      name="precio_base_usd"
+                      value={formDataRapido.precio_base_usd}
+                      onChange={handleChangeRapido}
+                      className={`input-chic flex-1 ${errorsRapido.precio_base_usd ? 'border-feedback-error' : ''}`}
+                      placeholder="0.00"
+                      step="0.01"
+                    />
+                  </div>
+                  {errorsRapido.precio_base_usd && (
+                    <p className="text-feedback-error text-sm mt-1">{errorsRapido.precio_base_usd}</p>
+                  )}
+                </div>
+
+                {/* Margen y Descuento */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                      Margen
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        name="margen_porcentaje"
+                        value={formDataRapido.margen_porcentaje}
+                        onChange={handleChangeRapido}
+                        className="input-chic flex-1"
+                        placeholder="25"
+                      />
+                      <span className="text-neutrals-grayStrong font-medium">%</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                      Descuento
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        name="descuento_porcentaje"
+                        value={formDataRapido.descuento_porcentaje}
+                        onChange={handleChangeRapido}
+                        className="input-chic flex-1"
+                        placeholder="0"
+                        min="0"
+                        max="100"
+                      />
+                      <span className="text-neutrals-grayStrong font-medium">%</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Resumen de cálculos */}
+                {calculosRapido && (
+                  <div 
+                    className="rounded-xl p-4 space-y-2"
+                    style={{ background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)' }}
+                  >
+                    <div className="flex justify-between text-sm">
+                      <span className="text-white/80">Precio + Tax (USD):</span>
+                      <span className="text-white font-medium">${calculosRapido.precio_con_tax_usd}</span>
+                    </div>
+                    
+                    {calculosRapido.descuentoPorcentaje > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-white/80">- Descuento ({calculosRapido.descuentoPorcentaje}%):</span>
+                        <span className="text-yellow-300 font-medium">-${(calculosRapido.precio_con_tax_usd - calculosRapido.costo_total_usd).toFixed(2)} USD</span>
+                      </div>
+                    )}
+                    
+                    <div className="flex justify-between text-sm border-t border-white/20 pt-2">
+                      <span className="text-white/80">Costo final (COP):</span>
+                      <span className="text-white font-medium">{formatearCOP(calculosRapido.costo_total_cop)}</span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                      <span className="text-white/80">+ Margen ({formDataRapido.margen_porcentaje}%):</span>
+                      <span className="text-white font-medium">{formatearCOP(calculosRapido.precio_sugerido_cop - calculosRapido.costo_total_cop)}</span>
+                    </div>
+                    
+                    {calculosRapido.descuentoPorcentaje > 0 ? (
+                      <>
+                        <div className="flex justify-between items-center pt-2 border-t border-white/20">
+                          <span className="text-white/80">Valor sin descuento:</span>
+                          <span className="text-white/60 line-through text-sm">
+                            {formatearCOP(calculosRapido.valor_producto_cop)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center bg-white/20 rounded-lg p-2 -mx-1">
+                          <span className="text-white font-medium text-sm">
+                            🔥 Precio con -{calculosRapido.descuentoPorcentaje}%
+                          </span>
+                          <span className="font-display text-2xl font-bold text-white">
+                            {formatearCOP(calculosRapido.precio_final_cop)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-white/80">Cliente ahorra:</span>
+                          <span className="text-yellow-300 font-bold">
+                            {formatearCOP(calculosRapido.descuento_cop)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 border-t border-white/20">
+                          <span className="text-white/80">Tu ganancia:</span>
+                          <span className={`font-bold ${calculosRapido.ganancia_cop >= 0 ? 'text-green-300' : 'text-red-300'}`}>
+                            {formatearCOP(calculosRapido.ganancia_cop)}
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex justify-between items-center bg-white/20 rounded-lg p-2 -mx-1 mt-2">
+                          <span className="text-white font-medium">Precio Venta:</span>
+                          <span className="font-display text-2xl font-bold text-white">
+                            {formatearCOP(calculosRapido.precio_final_cop)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 border-t border-white/20">
+                          <span className="text-white/80">Tu ganancia:</span>
+                          <span className="text-green-300 font-bold">
+                            {formatearCOP(calculosRapido.ganancia_cop)}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Imagen - Se muestra después de calcular precios */}
+                {calculosRapido && (
+                  <div>
+                    <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                      📷 Imagen del Producto <span className="text-feedback-error">*</span>
+                    </label>
+                    <div className={`border-2 border-dashed rounded-lg p-4 ${errorsRapido.imagenes ? 'border-feedback-error' : 'border-neutrals-grayBorder'}`}>
+                      {imagenesPreviewRapido.length > 0 && (
+                        <div className="grid grid-cols-4 gap-2 mb-4">
+                          {imagenesPreviewRapido.map((url, index) => (
+                            <div key={index} className="relative aspect-square">
+                              <img src={url} alt="" className="w-full h-full object-cover rounded-lg" />
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveImageRapido(index)}
+                                className="absolute -top-2 -right-2 w-6 h-6 bg-feedback-error text-white rounded-full flex items-center justify-center text-xs"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {uploadingImagesRapido && (
+                        <div className="flex flex-col items-center justify-center py-4">
+                          <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin mb-2"></div>
+                          <span className="text-sm text-neutrals-graySoft">Subiendo...</span>
+                        </div>
+                      )}
+
+                      {!uploadingImagesRapido && (
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <label 
+                            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 transition-all ${
+                              hasCameraSupport
+                                ? 'border-orange-500 bg-orange-50 text-orange-600 cursor-pointer hover:bg-orange-100'
+                                : 'border-neutrals-grayBorder bg-neutrals-grayBg text-neutrals-graySoft cursor-not-allowed opacity-60'
+                            }`}
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <span className="font-medium text-sm">Tomar Foto</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              capture="environment"
+                              onChange={handleImageUploadRapido}
+                              className="hidden"
+                              disabled={!hasCameraSupport || uploadingImagesRapido}
+                            />
+                          </label>
+
+                          <label className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 border-neutrals-grayBorder bg-white text-neutrals-grayStrong cursor-pointer hover:border-orange-500 hover:bg-orange-50 hover:text-orange-600 transition-all">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <span className="font-medium text-sm">Subir Imagen</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              onChange={handleImageUploadRapido}
+                              className="hidden"
+                              disabled={uploadingImagesRapido}
+                            />
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                    {errorsRapido.imagenes && (
+                      <p className="text-feedback-error text-sm mt-1">{errorsRapido.imagenes}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Botones */}
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => { setShowModalRapido(false); resetFormRapido(); }}
+                    className="flex-1 btn-secondary"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={actionLoading || !calculosRapido}
+                    className="flex-1 py-2.5 rounded-lg font-medium text-white transition-all disabled:opacity-50"
+                    style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
+                  >
+                    {actionLoading ? 'Guardando...' : (modoEdicionRapido ? 'Guardar' : 'Agregar')}
+                  </button>
+                </div>
               </form>
             </div>
           </div>
