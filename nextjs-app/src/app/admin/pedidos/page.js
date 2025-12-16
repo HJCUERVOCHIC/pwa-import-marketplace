@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -17,7 +17,8 @@ const ESTADOS_PEDIDO = {
   cancelado: { label: 'Cancelado', color: 'bg-red-100 text-red-800', icon: '❌' }
 }
 
-export default function PedidosPage() {
+// Componente interno que usa useSearchParams
+function PedidosContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const clienteIdParam = searchParams.get('cliente')
@@ -136,7 +137,7 @@ export default function PedidosPage() {
   }
 
   return (
-    <AdminLayout>
+    <>
       {/* Header */}
       <header className="bg-white border-b-[3px] border-blue-elegant">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
@@ -328,6 +329,29 @@ export default function PedidosPage() {
           </>
         )}
       </main>
+    </>
+  )
+}
+
+// Componente de loading para Suspense
+function LoadingPedidos() {
+  return (
+    <div className="flex items-center justify-center py-16">
+      <div className="text-center">
+        <div className="w-12 h-12 border-4 border-blue-elegant border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <p className="text-neutrals-graySoft">Cargando...</p>
+      </div>
+    </div>
+  )
+}
+
+// Componente principal envuelto en Suspense
+export default function PedidosPage() {
+  return (
+    <AdminLayout>
+      <Suspense fallback={<LoadingPedidos />}>
+        <PedidosContent />
+      </Suspense>
     </AdminLayout>
   )
 }
