@@ -1,6 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+export const dynamic = 'force-dynamic'
+
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -17,7 +19,22 @@ const ESTADOS_PEDIDO = {
   cancelado: { label: 'Cancelado', color: 'bg-red-100 text-red-800', icon: '❌' }
 }
 
-export default function PedidosPage() {
+// Componente de loading
+function LoadingPedidos() {
+  return (
+    <AdminLayout>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="w-10 h-10 border-4 border-blue-elegant border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-neutrals-graySoft">Cargando pedidos...</p>
+        </div>
+      </div>
+    </AdminLayout>
+  )
+}
+
+// Componente principal que usa useSearchParams
+function PedidosContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const clienteIdParam = searchParams.get('cliente')
@@ -329,5 +346,14 @@ export default function PedidosPage() {
         )}
       </main>
     </AdminLayout>
+  )
+}
+
+// Componente exportado que envuelve en Suspense
+export default function PedidosPage() {
+  return (
+    <Suspense fallback={<LoadingPedidos />}>
+      <PedidosContent />
+    </Suspense>
   )
 }
