@@ -1,84 +1,78 @@
 'use client'
 
-import { useState, useEffect, use } from 'react'
-import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
+import { supabase } from '@/lib/supabase'
+import AdminLayout from '@/components/AdminLayout'
 
-const ESTADOS_PEDIDO = [
-  { value: 'nuevo', label: 'Nuevo', color: 'bg-gray-100 text-gray-700' },
-  { value: 'en_gestion', label: 'En gestión', color: 'bg-blue-100 text-blue-700' },
-  { value: 'confirmado', label: 'Confirmado', color: 'bg-indigo-100 text-indigo-700' },
-  { value: 'en_compra', label: 'En compra', color: 'bg-orange-100 text-orange-700' },
-  { value: 'en_transito', label: 'En tránsito', color: 'bg-amber-100 text-amber-700' },
-  { value: 'entregado', label: 'Entregado', color: 'bg-green-100 text-green-700' },
-  { value: 'cancelado', label: 'Cancelado', color: 'bg-red-100 text-red-700' }
-]
+// Estados de pedido
+const ESTADOS_PEDIDO = {
+  nuevo: { label: 'Nuevo', color: 'bg-blue-100 text-blue-800', icon: '🆕' },
+  en_gestion: { label: 'En Gestión', color: 'bg-yellow-100 text-yellow-800', icon: '⏳' },
+  confirmado: { label: 'Confirmado', color: 'bg-purple-100 text-purple-800', icon: '✅' },
+  en_compra: { label: 'En Compra', color: 'bg-orange-100 text-orange-800', icon: '🛒' },
+  en_transito: { label: 'En Tránsito', color: 'bg-cyan-100 text-cyan-800', icon: '✈️' },
+  entregado: { label: 'Entregado', color: 'bg-green-100 text-green-800', icon: '📦' },
+  cancelado: { label: 'Cancelado', color: 'bg-red-100 text-red-800', icon: '❌' }
+}
 
-const ESTADOS_ITEM = [
-  { value: 'solicitado', label: 'Solicitado', color: 'bg-gray-100 text-gray-700' },
-  { value: 'en_busqueda', label: 'En búsqueda', color: 'bg-blue-100 text-blue-700' },
-  { value: 'encontrado', label: 'Encontrado', color: 'bg-green-100 text-green-700' },
-  { value: 'no_encontrado', label: 'No encontrado', color: 'bg-red-100 text-red-700' },
-  { value: 'comprado', label: 'Comprado', color: 'bg-indigo-100 text-indigo-700' },
-  { value: 'entregado', label: 'Entregado', color: 'bg-emerald-100 text-emerald-700' },
-  { value: 'cancelado', label: 'Cancelado', color: 'bg-gray-200 text-gray-600' }
-]
+// Estados de items
+const ESTADOS_ITEM = {
+  solicitado: { label: 'Solicitado', color: 'bg-gray-100 text-gray-800' },
+  en_busqueda: { label: 'En Búsqueda', color: 'bg-yellow-100 text-yellow-800' },
+  encontrado: { label: 'Encontrado', color: 'bg-green-100 text-green-800' },
+  no_encontrado: { label: 'No Encontrado', color: 'bg-red-100 text-red-800' },
+  comprado: { label: 'Comprado', color: 'bg-blue-100 text-blue-800' },
+  entregado: { label: 'Entregado', color: 'bg-green-100 text-green-800' },
+  cancelado: { label: 'Cancelado', color: 'bg-red-100 text-red-800' }
+}
 
-const CANALES = [
-  { value: 'whatsapp', label: 'WhatsApp' },
-  { value: 'instagram', label: 'Instagram' },
-  { value: 'facebook', label: 'Facebook' },
-  { value: 'referido', label: 'Referido' },
-  { value: 'otro', label: 'Otro' }
-]
-
-const GENEROS = [
-  { value: 'hombre', label: 'Hombre' },
-  { value: 'mujer', label: 'Mujer' },
-  { value: 'unisex', label: 'Unisex' },
-  { value: 'ninos', label: 'Niños' }
-]
-
-export default function DetallePedidoPage({ params }) {
-  const { id } = use(params)
+export default function DetallePedidoPage() {
   const router = useRouter()
-  
+  const params = useParams()
+  const pedidoId = params.id
+
   const [pedido, setPedido] = useState(null)
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const [actionLoading, setActionLoading] = useState(false)
   
-  // Modal agregar artículo
+  // Modal agregar item
   const [showModalItem, setShowModalItem] = useState(false)
-  const [itemEditando, setItemEditando] = useState(null)
   const [busquedaProducto, setBusquedaProducto] = useState('')
   const [productosEncontrados, setProductosEncontrados] = useState([])
   const [buscandoProductos, setBuscandoProductos] = useState(false)
-  
+  const [productoSeleccionado, setProductoSeleccionado] = useState(null)
   const [nuevoItem, setNuevoItem] = useState({
-    producto_id: null,
-    lista_oferta_id: null,
-    titulo_articulo: '',
     cantidad: 1,
-    precio_venta_cop: 0,
-    costo_cop: 0,
+    precio_venta_cop: '',
     talla: '',
     genero: '',
-    descripcion_detallada: '',
-    estado_item: 'solicitado',
-    fue_encontrado: false
+    descripcion_detallada: ''
+  })
+
+  // Modal editar fechas/estado
+  const [showModalEditar, setShowModalEditar] = useState(false)
+  const [editarPedido, setEditarPedido] = useState({
+    estado_pedido: '',
+    fecha_probable_envio: '',
+    fecha_entrega: '',
+    notas_internas: ''
   })
 
   useEffect(() => {
-    cargarPedido()
-    cargarItems()
-  }, [id])
+    if (pedidoId) {
+      checkAuth()
+      cargarPedido()
+      cargarItems()
+    }
+  }, [pedidoId])
 
   // Buscar productos
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (busquedaProducto.length >= 2) {
+      if (busquedaProducto.trim().length >= 2) {
         buscarProductos()
       } else {
         setProductosEncontrados([])
@@ -87,562 +81,549 @@ export default function DetallePedidoPage({ params }) {
     return () => clearTimeout(timer)
   }, [busquedaProducto])
 
-  const cargarPedido = async () => {
-    const { data, error } = await supabase
-      .from('pedidos')
-      .select(`
-        *,
-        clientes (*)
-      `)
-      .eq('id', id)
-      .single()
-    
-    if (error) {
-      alert('Error al cargar pedido')
-      router.push('/admin/pedidos')
-      return
+  const checkAuth = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      router.push('/auth')
     }
-    
-    setPedido(data)
-    setLoading(false)
+  }
+
+  const cargarPedido = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('pedidos')
+        .select(`
+          *,
+          cliente:clientes(*)
+        `)
+        .eq('id', pedidoId)
+        .single()
+
+      if (error) throw error
+      setPedido(data)
+    } catch (error) {
+      console.error('Error cargando pedido:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const cargarItems = async () => {
-    const { data, error } = await supabase
-      .from('pedido_items')
-      .select('*')
-      .eq('pedido_id', id)
-      .order('created_at', { ascending: true })
-    
-    if (!error) {
+    try {
+      const { data, error } = await supabase
+        .from('pedido_items')
+        .select(`
+          *,
+          producto:productos(id, titulo, imagenes, categoria)
+        `)
+        .eq('pedido_id', pedidoId)
+        .order('created_at', { ascending: true })
+
+      if (error) throw error
       setItems(data || [])
+    } catch (error) {
+      console.error('Error cargando items:', error)
     }
   }
 
   const buscarProductos = async () => {
     setBuscandoProductos(true)
-    const { data, error } = await supabase
-      .from('productos')
-      .select('*, listas_oferta(titulo)')
-      .or(`titulo.ilike.%${busquedaProducto}%,marca.ilike.%${busquedaProducto}%`)
-      .eq('estado', 'publicado')
-      .limit(10)
-    
-    if (!error) {
+    try {
+      const { data, error } = await supabase
+        .from('productos')
+        .select('id, titulo, precio_final_cop, costo_total_cop, imagenes, categoria, marca')
+        .or(`titulo.ilike.%${busquedaProducto}%,marca.ilike.%${busquedaProducto}%`)
+        .eq('estado', 'publicado')
+        .limit(10)
+
+      if (error) throw error
       setProductosEncontrados(data || [])
+    } catch (error) {
+      console.error('Error buscando productos:', error)
+    } finally {
+      setBuscandoProductos(false)
     }
-    setBuscandoProductos(false)
   }
 
   const seleccionarProducto = (producto) => {
-    setNuevoItem({
-      ...nuevoItem,
-      producto_id: producto.id,
-      lista_oferta_id: producto.id_lista,
-      titulo_articulo: producto.titulo,
-      precio_venta_cop: producto.precio_final_cop || 0,
-      costo_cop: producto.costo_total_cop || 0
-    })
+    setProductoSeleccionado(producto)
+    setNuevoItem(prev => ({
+      ...prev,
+      precio_venta_cop: producto.precio_final_cop?.toString() || ''
+    }))
     setBusquedaProducto('')
     setProductosEncontrados([])
   }
 
-  const actualizarPedido = async (campo, valor) => {
-    setSaving(true)
-    const { error } = await supabase
-      .from('pedidos')
-      .update({ [campo]: valor })
-      .eq('id', id)
-    
-    if (error) {
-      alert('Error al actualizar: ' + error.message)
-    } else {
-      setPedido(prev => ({ ...prev, [campo]: valor }))
-    }
-    setSaving(false)
-  }
-
-  const handleChangeItem = (e) => {
-    const { name, value, type, checked } = e.target
-    setNuevoItem(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }))
-  }
-
-  const abrirModalNuevoItem = () => {
-    setItemEditando(null)
-    setNuevoItem({
-      producto_id: null,
-      lista_oferta_id: null,
-      titulo_articulo: '',
-      cantidad: 1,
-      precio_venta_cop: 0,
-      costo_cop: 0,
-      talla: '',
-      genero: '',
-      descripcion_detallada: '',
-      estado_item: 'solicitado',
-      fue_encontrado: false
-    })
-    setBusquedaProducto('')
-    setShowModalItem(true)
-  }
-
-  const abrirModalEditarItem = (item) => {
-    setItemEditando(item)
-    setNuevoItem({
-      producto_id: item.producto_id,
-      lista_oferta_id: item.lista_oferta_id,
-      titulo_articulo: item.titulo_articulo,
-      cantidad: item.cantidad,
-      precio_venta_cop: item.precio_venta_cop,
-      costo_cop: item.costo_cop,
-      talla: item.talla || '',
-      genero: item.genero || '',
-      descripcion_detallada: item.descripcion_detallada || '',
-      estado_item: item.estado_item || 'solicitado',
-      fue_encontrado: item.fue_encontrado || false
-    })
-    setShowModalItem(true)
-  }
-
-  const guardarItem = async (e) => {
-    e.preventDefault()
-    
-    if (!nuevoItem.titulo_articulo.trim()) {
-      alert('El título del artículo es obligatorio')
+  const agregarItem = async () => {
+    if (!productoSeleccionado && !busquedaProducto.trim()) {
+      alert('Debe seleccionar un producto o ingresar un título')
       return
     }
-    
-    setSaving(true)
-    
+
+    if (!nuevoItem.precio_venta_cop) {
+      alert('El precio de venta es requerido')
+      return
+    }
+
+    setActionLoading(true)
     try {
-      if (itemEditando) {
-        // Actualizar
-        const { error } = await supabase
-          .from('pedido_items')
-          .update({
-            producto_id: nuevoItem.producto_id,
-            lista_oferta_id: nuevoItem.lista_oferta_id,
-            titulo_articulo: nuevoItem.titulo_articulo,
-            cantidad: parseInt(nuevoItem.cantidad) || 1,
-            precio_venta_cop: parseFloat(nuevoItem.precio_venta_cop) || 0,
-            costo_cop: parseFloat(nuevoItem.costo_cop) || 0,
-            talla: nuevoItem.talla || null,
-            genero: nuevoItem.genero || null,
-            descripcion_detallada: nuevoItem.descripcion_detallada || null,
-            estado_item: nuevoItem.estado_item,
-            fue_encontrado: nuevoItem.fue_encontrado
-          })
-          .eq('id', itemEditando.id)
-        
-        if (error) throw error
-      } else {
-        // Crear nuevo
-        const { error } = await supabase
-          .from('pedido_items')
-          .insert({
-            pedido_id: id,
-            producto_id: nuevoItem.producto_id,
-            lista_oferta_id: nuevoItem.lista_oferta_id,
-            titulo_articulo: nuevoItem.titulo_articulo,
-            cantidad: parseInt(nuevoItem.cantidad) || 1,
-            precio_venta_cop: parseFloat(nuevoItem.precio_venta_cop) || 0,
-            costo_cop: parseFloat(nuevoItem.costo_cop) || 0,
-            talla: nuevoItem.talla || null,
-            genero: nuevoItem.genero || null,
-            descripcion_detallada: nuevoItem.descripcion_detallada || null,
-            estado_item: nuevoItem.estado_item,
-            fue_encontrado: nuevoItem.fue_encontrado
-          })
-        
-        if (error) throw error
+      const precioVenta = parseFloat(nuevoItem.precio_venta_cop)
+      const costoCop = productoSeleccionado?.costo_total_cop || 0
+      const cantidad = parseInt(nuevoItem.cantidad) || 1
+
+      const itemData = {
+        pedido_id: pedidoId,
+        producto_id: productoSeleccionado?.id || null,
+        lista_oferta_id: pedido.lista_oferta_id || null,
+        titulo_articulo: productoSeleccionado?.titulo || busquedaProducto.trim(),
+        cantidad: cantidad,
+        precio_venta_cop: precioVenta,
+        costo_cop: costoCop,
+        ganancia_cop: (precioVenta - costoCop) * cantidad,
+        fue_encontrado: false,
+        talla: nuevoItem.talla.trim() || null,
+        genero: nuevoItem.genero || null,
+        descripcion_detallada: nuevoItem.descripcion_detallada.trim() || null,
+        estado_item: 'solicitado'
       }
+
+      const { error } = await supabase
+        .from('pedido_items')
+        .insert([itemData])
+
+      if (error) throw error
+
+      // Recargar items y recalcular totales
+      await cargarItems()
+      await recalcularTotales()
       
+      // Resetear modal
       setShowModalItem(false)
-      cargarItems()
-      cargarPedido() // Recargar totales
+      setProductoSeleccionado(null)
+      setBusquedaProducto('')
+      setNuevoItem({
+        cantidad: 1,
+        precio_venta_cop: '',
+        talla: '',
+        genero: '',
+        descripcion_detallada: ''
+      })
+    } catch (error) {
+      alert('Error al agregar item: ' + error.message)
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const toggleFueEncontrado = async (item) => {
+    try {
+      const nuevoValor = !item.fue_encontrado
+      const nuevoEstado = nuevoValor ? 'encontrado' : 'solicitado'
+
+      const { error } = await supabase
+        .from('pedido_items')
+        .update({ 
+          fue_encontrado: nuevoValor,
+          estado_item: nuevoEstado,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', item.id)
+
+      if (error) throw error
+      await cargarItems()
     } catch (error) {
       alert('Error: ' + error.message)
-    } finally {
-      setSaving(false)
     }
   }
 
   const eliminarItem = async (item) => {
-    if (!confirm(`¿Eliminar "${item.titulo_articulo}"?`)) return
-    
-    const { error } = await supabase
-      .from('pedido_items')
-      .delete()
-      .eq('id', item.id)
-    
-    if (error) {
+    const confirmar = window.confirm(`¿Eliminar "${item.titulo_articulo}" del pedido?`)
+    if (!confirmar) return
+
+    try {
+      const { error } = await supabase
+        .from('pedido_items')
+        .delete()
+        .eq('id', item.id)
+
+      if (error) throw error
+      await cargarItems()
+      await recalcularTotales()
+    } catch (error) {
       alert('Error: ' + error.message)
-    } else {
-      cargarItems()
-      cargarPedido()
     }
   }
 
-  const toggleEncontrado = async (item) => {
-    const { error } = await supabase
-      .from('pedido_items')
-      .update({ fue_encontrado: !item.fue_encontrado })
-      .eq('id', item.id)
-    
-    if (!error) {
-      cargarItems()
+  const recalcularTotales = async () => {
+    try {
+      const { data: itemsActuales } = await supabase
+        .from('pedido_items')
+        .select('cantidad, precio_venta_cop, costo_cop')
+        .eq('pedido_id', pedidoId)
+
+      const totales = (itemsActuales || []).reduce((acc, item) => {
+        const cant = item.cantidad || 1
+        return {
+          total_items: acc.total_items + cant,
+          total_venta_cop: acc.total_venta_cop + (item.precio_venta_cop * cant),
+          total_costo_cop: acc.total_costo_cop + (item.costo_cop * cant)
+        }
+      }, { total_items: 0, total_venta_cop: 0, total_costo_cop: 0 })
+
+      totales.total_ganancia_cop = totales.total_venta_cop - totales.total_costo_cop
+
+      const { error } = await supabase
+        .from('pedidos')
+        .update({
+          ...totales,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', pedidoId)
+
+      if (error) throw error
+      await cargarPedido()
+    } catch (error) {
+      console.error('Error recalculando totales:', error)
     }
+  }
+
+  const abrirModalEditar = () => {
+    setEditarPedido({
+      estado_pedido: pedido.estado_pedido || 'nuevo',
+      fecha_probable_envio: pedido.fecha_probable_envio?.split('T')[0] || '',
+      fecha_entrega: pedido.fecha_entrega?.split('T')[0] || '',
+      notas_internas: pedido.notas_internas || ''
+    })
+    setShowModalEditar(true)
+  }
+
+  const guardarCambiosPedido = async () => {
+    setActionLoading(true)
+    try {
+      const { error } = await supabase
+        .from('pedidos')
+        .update({
+          estado_pedido: editarPedido.estado_pedido,
+          fecha_probable_envio: editarPedido.fecha_probable_envio || null,
+          fecha_entrega: editarPedido.fecha_entrega || null,
+          notas_internas: editarPedido.notas_internas.trim() || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', pedidoId)
+
+      if (error) throw error
+      await cargarPedido()
+      setShowModalEditar(false)
+    } catch (error) {
+      alert('Error: ' + error.message)
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const formatearCOP = (valor) => {
+    if (!valor) return '$0'
+    return new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(valor)
   }
 
   const formatearFecha = (fecha) => {
     if (!fecha) return '-'
     return new Date(fecha).toLocaleDateString('es-CO', {
-      day: 'numeric',
+      day: '2-digit',
       month: 'short',
       year: 'numeric'
     })
   }
 
-  const formatearCOP = (valor) => {
-    return new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP',
-      minimumFractionDigits: 0
-    }).format(valor || 0)
-  }
-
-  const getEstadoInfo = (estado, lista) => {
-    return lista.find(e => e.value === estado) || lista[0]
-  }
-
   const getNombreCliente = (cliente) => {
     if (!cliente) return 'Sin cliente'
-    if (cliente.alias_whatsapp) return cliente.alias_whatsapp
-    if (cliente.nombres || cliente.apellidos) {
-      return [cliente.nombres, cliente.apellidos].filter(Boolean).join(' ')
-    }
-    return cliente.telefono
+    const partes = [cliente.nombres, cliente.apellidos].filter(Boolean)
+    return partes.length > 0 ? partes.join(' ') : cliente.telefono
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-800"></div>
-      </div>
+      <AdminLayout>
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-blue-elegant border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-neutrals-graySoft">Cargando pedido...</p>
+          </div>
+        </div>
+      </AdminLayout>
     )
   }
 
   if (!pedido) {
-    return null
+    return (
+      <AdminLayout>
+        <div className="text-center py-16">
+          <p className="text-neutrals-graySoft">Pedido no encontrado</p>
+          <Link href="/admin/pedidos" className="btn-primary mt-4">
+            Volver a Pedidos
+          </Link>
+        </div>
+      </AdminLayout>
+    )
   }
 
-  const estadoPedidoInfo = getEstadoInfo(pedido.estado_pedido, ESTADOS_PEDIDO)
-  const itemsEncontrados = items.filter(i => i.fue_encontrado).length
-  const itemsPendientes = items.length - itemsEncontrados
+  const estadoInfo = ESTADOS_PEDIDO[pedido.estado_pedido] || ESTADOS_PEDIDO.nuevo
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <AdminLayout>
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="max-w-7xl mx-auto">
+      <header className="bg-white border-b-[3px] border-blue-elegant">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-4">
               <Link
                 href="/admin/pedidos"
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="p-2 hover:bg-neutrals-grayBg rounded-lg transition-colors"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                <svg className="w-5 h-5 text-neutrals-grayStrong" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </Link>
               <div>
-                <h1 className="text-2xl font-semibold text-blue-800" style={{ fontFamily: 'Playfair Display, serif' }}>
-                  {pedido.codigo_pedido}
-                </h1>
-                <p className="text-sm text-gray-500 mt-1">
-                  Cliente: {getNombreCliente(pedido.clientes)} • {pedido.clientes?.telefono}
+                <div className="flex items-center gap-3">
+                  <h1 className="font-display text-2xl font-semibold text-neutrals-black">
+                    {pedido.codigo_pedido || `Pedido #${pedido.id.slice(0, 8)}`}
+                  </h1>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${estadoInfo.color}`}>
+                    {estadoInfo.icon} {estadoInfo.label}
+                  </span>
+                </div>
+                <p className="text-neutrals-graySoft text-sm">
+                  Creado el {formatearFecha(pedido.created_at)}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <select
-                value={pedido.estado_pedido}
-                onChange={(e) => actualizarPedido('estado_pedido', e.target.value)}
-                className={`px-4 py-2 rounded-lg font-medium border-0 focus:ring-2 focus:ring-blue-500 ${estadoPedidoInfo.color}`}
-              >
-                {ESTADOS_PEDIDO.map(estado => (
-                  <option key={estado.value} value={estado.value}>{estado.label}</option>
-                ))}
-              </select>
-            </div>
+
+            <button
+              onClick={abrirModalEditar}
+              className="btn-secondary flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Editar Pedido
+            </button>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="max-w-7xl mx-auto px-6 py-6">
+      {/* Contenido */}
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          {/* Columna izquierda - Info pedido y cliente */}
+          {/* Columna Izquierda - Info del pedido */}
           <div className="lg:col-span-1 space-y-6">
-            {/* Card Fechas */}
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h3 className="font-semibold text-gray-900 mb-4">Fechas del pedido</h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Fecha solicitud</label>
-                  <p className="text-gray-900">{formatearFecha(pedido.fecha_solicitud)}</p>
+            {/* Tarjeta Cliente */}
+            <div className="card-premium p-5">
+              <h3 className="font-semibold text-neutrals-black mb-4 flex items-center gap-2">
+                <span>👤</span> Cliente
+              </h3>
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-elegant to-blue-800 flex items-center justify-center text-white font-semibold">
+                  {(pedido.cliente?.nombres?.[0] || pedido.cliente?.telefono?.[0] || '?').toUpperCase()}
                 </div>
-                
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Fecha probable envío</label>
-                  <input
-                    type="date"
-                    value={pedido.fecha_probable_envio ? pedido.fecha_probable_envio.split('T')[0] : ''}
-                    onChange={(e) => actualizarPedido('fecha_probable_envio', e.target.value || null)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Fecha entrega</label>
-                  <input
-                    type="date"
-                    value={pedido.fecha_entrega ? pedido.fecha_entrega.split('T')[0] : ''}
-                    onChange={(e) => {
-                      actualizarPedido('fecha_entrega', e.target.value || null)
-                      if (e.target.value) {
-                        actualizarPedido('estado_pedido', 'entregado')
-                      }
-                    }}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
-                  />
+                  <p className="font-medium text-neutrals-black">
+                    {getNombreCliente(pedido.cliente)}
+                  </p>
+                  <a 
+                    href={`https://wa.me/${pedido.cliente?.telefono?.replace(/[^0-9]/g, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-elegant hover:underline"
+                  >
+                    {pedido.cliente?.telefono}
+                  </a>
                 </div>
               </div>
             </div>
 
-            {/* Card Resumen económico */}
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h3 className="font-semibold text-gray-900 mb-4">Resumen económico</h3>
-              
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-500">Total items</span>
-                  <span className="font-semibold text-gray-900 bg-blue-100 px-2 py-0.5 rounded">
-                    {pedido.total_items || 0}
+            {/* Tarjeta Fechas */}
+            <div className="card-premium p-5">
+              <h3 className="font-semibold text-neutrals-black mb-4 flex items-center gap-2">
+                <span>📅</span> Fechas
+              </h3>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-neutrals-graySoft">Solicitud:</span>
+                  <span className="font-medium">{formatearFecha(pedido.fecha_solicitud)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-neutrals-graySoft">Envío aprox:</span>
+                  <span className={pedido.fecha_probable_envio ? 'font-medium' : 'text-neutrals-graySoft'}>
+                    {formatearFecha(pedido.fecha_probable_envio)}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-500">Total venta</span>
-                  <span className="font-semibold text-blue-800 text-lg">{formatearCOP(pedido.total_venta_cop)}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-500">Total costo</span>
-                  <span className="text-gray-700">{formatearCOP(pedido.total_costo_cop)}</span>
-                </div>
-                <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                  <span className="text-gray-500">Ganancia</span>
-                  <span className="font-bold text-green-600 text-lg">{formatearCOP(pedido.total_ganancia_cop)}</span>
+                <div className="flex justify-between">
+                  <span className="text-neutrals-graySoft">Entrega:</span>
+                  <span className={pedido.fecha_entrega ? 'font-medium text-green-600' : 'text-neutrals-graySoft'}>
+                    {formatearFecha(pedido.fecha_entrega)}
+                  </span>
                 </div>
               </div>
             </div>
 
-            {/* Card Cliente */}
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h3 className="font-semibold text-gray-900 mb-4">Información del cliente</h3>
-              
-              {pedido.clientes && (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Teléfono</label>
-                    <p className="text-gray-900 font-medium text-lg">{pedido.clientes.telefono}</p>
-                  </div>
-                  
-                  {(pedido.clientes.nombres || pedido.clientes.apellidos) && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">Nombre</label>
-                      <p className="text-gray-900">
-                        {[pedido.clientes.nombres, pedido.clientes.apellidos].filter(Boolean).join(' ')}
-                      </p>
-                    </div>
-                  )}
-                  
-                  {pedido.clientes.alias_whatsapp && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">Alias WhatsApp</label>
-                      <p className="text-gray-900">{pedido.clientes.alias_whatsapp}</p>
-                    </div>
-                  )}
-                  
-                  {pedido.clientes.canal_preferido && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">Canal preferido</label>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize">
-                        {pedido.clientes.canal_preferido}
-                      </span>
-                    </div>
-                  )}
-                  
-                  {pedido.clientes.notas && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">Notas</label>
-                      <p className="text-gray-600 text-sm italic">"{pedido.clientes.notas}"</p>
-                    </div>
-                  )}
-                  
-                  <Link
-                    href={`/admin/clientes?busqueda=${pedido.clientes.telefono}`}
-                    className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 mt-2"
-                  >
-                    Ver ficha de cliente
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                  </Link>
+            {/* Tarjeta Totales */}
+            <div className="card-premium p-5">
+              <h3 className="font-semibold text-neutrals-black mb-4 flex items-center gap-2">
+                <span>💰</span> Totales
+              </h3>
+              <div className="space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-neutrals-graySoft">Items:</span>
+                  <span className="font-medium">{pedido.total_items || 0}</span>
                 </div>
-              )}
+                <div className="flex justify-between text-sm">
+                  <span className="text-neutrals-graySoft">Costo:</span>
+                  <span className="font-medium">{formatearCOP(pedido.total_costo_cop)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-neutrals-graySoft">Venta:</span>
+                  <span className="font-semibold text-lg">{formatearCOP(pedido.total_venta_cop)}</span>
+                </div>
+                <div className="pt-3 border-t border-neutrals-grayBorder">
+                  <div className="flex justify-between">
+                    <span className="text-neutrals-graySoft">Ganancia:</span>
+                    <span className={`font-bold text-lg ${pedido.total_ganancia_cop >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {formatearCOP(pedido.total_ganancia_cop)}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* Canal entrada */}
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <label className="block text-xs font-medium text-gray-500 mb-2">Canal de entrada</label>
-              <select
-                value={pedido.canal_entrada || ''}
-                onChange={(e) => actualizarPedido('canal_entrada', e.target.value || null)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Sin especificar</option>
-                {CANALES.map(canal => (
-                  <option key={canal.value} value={canal.value}>{canal.label}</option>
-                ))}
-              </select>
-            </div>
+            {/* Notas */}
+            {pedido.notas_internas && (
+              <div className="card-premium p-5">
+                <h3 className="font-semibold text-neutrals-black mb-3 flex items-center gap-2">
+                  <span>📝</span> Notas
+                </h3>
+                <p className="text-sm text-neutrals-grayStrong whitespace-pre-wrap">
+                  {pedido.notas_internas}
+                </p>
+              </div>
+            )}
           </div>
 
-          {/* Columna derecha - Artículos */}
+          {/* Columna Derecha - Items del pedido */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-xl shadow-sm">
-              {/* Header artículos */}
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold text-gray-900">Artículos del pedido</h3>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {items.length} artículos ({itemsEncontrados} encontrados, {itemsPendientes} pendientes)
-                    </p>
-                  </div>
-                  <button
-                    onClick={abrirModalNuevoItem}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-800 text-white rounded-lg hover:bg-blue-900 transition-colors"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Agregar artículo
-                  </button>
-                </div>
+            <div className="card-premium">
+              {/* Header Items */}
+              <div className="flex items-center justify-between p-5 border-b border-neutrals-grayBorder">
+                <h3 className="font-semibold text-neutrals-black flex items-center gap-2">
+                  <span>📦</span> Artículos ({items.length})
+                </h3>
+                <button
+                  onClick={() => setShowModalItem(true)}
+                  className="btn-primary btn-sm flex items-center gap-1"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Agregar
+                </button>
               </div>
 
-              {/* Lista de artículos */}
+              {/* Lista de Items */}
               {items.length === 0 ? (
-                <div className="p-12 text-center">
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 bg-neutrals-grayBg rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-8 h-8 text-neutrals-graySoft" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                     </svg>
                   </div>
-                  <h4 className="text-lg font-medium text-gray-900 mb-2">Sin artículos</h4>
-                  <p className="text-gray-500 text-sm mb-4">Agrega artículos a este pedido</p>
+                  <p className="text-neutrals-graySoft mb-4">No hay artículos en este pedido</p>
                   <button
-                    onClick={abrirModalNuevoItem}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-800 text-white rounded-lg hover:bg-blue-900 transition-colors"
+                    onClick={() => setShowModalItem(true)}
+                    className="btn-primary"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Agregar primer artículo
+                    Agregar Primer Artículo
                   </button>
                 </div>
               ) : (
-                <div className="divide-y divide-gray-100">
+                <div className="divide-y divide-neutrals-grayBorder">
                   {items.map((item) => {
-                    const estadoItemInfo = getEstadoInfo(item.estado_item, ESTADOS_ITEM)
-                    const gananciaItem = (item.precio_venta_cop - item.costo_cop) * item.cantidad
+                    const estadoItem = ESTADOS_ITEM[item.estado_item] || ESTADOS_ITEM.solicitado
                     
                     return (
-                      <div key={item.id} className="p-4 hover:bg-gray-50">
-                        <div className="flex items-start gap-4">
-                          {/* Toggle encontrado */}
-                          <button
-                            onClick={() => toggleEncontrado(item)}
-                            className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-                              item.fue_encontrado 
-                                ? 'bg-green-500 border-green-500 text-white' 
-                                : 'border-gray-300 hover:border-green-400'
-                            }`}
-                          >
-                            {item.fue_encontrado && (
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
+                      <div key={item.id} className="p-4 hover:bg-neutrals-grayBg/30 transition-colors">
+                        <div className="flex gap-4">
+                          {/* Imagen */}
+                          <div className="w-16 h-16 rounded-lg bg-neutrals-grayBg flex-shrink-0 overflow-hidden">
+                            {item.producto?.imagenes?.[0] ? (
+                              <img 
+                                src={item.producto.imagenes[0]} 
+                                alt="" 
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <span className="text-2xl">📦</span>
+                              </div>
                             )}
-                          </button>
-                          
-                          {/* Info del item */}
+                          </div>
+
+                          {/* Info */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2">
                               <div>
-                                <h4 className="font-medium text-gray-900">{item.titulo_articulo}</h4>
-                                <div className="flex flex-wrap items-center gap-2 mt-1">
-                                  {item.talla && (
-                                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
-                                      Talla: {item.talla}
-                                    </span>
-                                  )}
-                                  {item.genero && (
-                                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded capitalize">
-                                      {item.genero}
-                                    </span>
-                                  )}
-                                  <span className={`text-xs px-2 py-0.5 rounded-full ${estadoItemInfo.color}`}>
-                                    {estadoItemInfo.label}
-                                  </span>
+                                <p className="font-medium text-neutrals-black line-clamp-1">
+                                  {item.titulo_articulo}
+                                </p>
+                                <div className="flex items-center gap-2 mt-1 text-xs text-neutrals-graySoft">
+                                  {item.cantidad > 1 && <span>Cant: {item.cantidad}</span>}
+                                  {item.talla && <span>• Talla: {item.talla}</span>}
+                                  {item.genero && <span>• {item.genero}</span>}
                                 </div>
-                                {item.descripcion_detallada && (
-                                  <p className="text-sm text-gray-500 mt-1 line-clamp-2">{item.descripcion_detallada}</p>
-                                )}
                               </div>
-                              
-                              <div className="text-right flex-shrink-0">
-                                <p className="font-semibold text-blue-800">{formatearCOP(item.precio_venta_cop)}</p>
-                                <p className="text-xs text-gray-500">Costo: {formatearCOP(item.costo_cop)}</p>
-                                <p className="text-xs text-green-600 font-medium">+{formatearCOP(gananciaItem)}</p>
-                              </div>
+                              <span className={`px-2 py-0.5 rounded text-xs font-medium ${estadoItem.color}`}>
+                                {estadoItem.label}
+                              </span>
                             </div>
-                            
-                            {/* Cantidad y acciones */}
-                            <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm text-gray-500">Cantidad:</span>
-                                <span className="font-medium">{item.cantidad}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => abrirModalEditarItem(item)}
-                                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                                >
-                                  Editar
-                                </button>
-                                <button
-                                  onClick={() => eliminarItem(item)}
-                                  className="text-red-600 hover:text-red-800 text-sm font-medium"
-                                >
-                                  Eliminar
-                                </button>
-                              </div>
+
+                            {/* Precios */}
+                            <div className="flex items-center gap-4 mt-2 text-sm">
+                              <span className="text-neutrals-graySoft">
+                                Costo: {formatearCOP(item.costo_cop)}
+                              </span>
+                              <span className="font-semibold text-neutrals-black">
+                                Venta: {formatearCOP(item.precio_venta_cop)}
+                              </span>
+                              {item.ganancia_cop > 0 && (
+                                <span className="text-green-600 text-xs">
+                                  +{formatearCOP(item.ganancia_cop)}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Acciones */}
+                            <div className="flex items-center gap-3 mt-3">
+                              <button
+                                onClick={() => toggleFueEncontrado(item)}
+                                className={`text-xs px-3 py-1 rounded-full transition-colors ${
+                                  item.fue_encontrado
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-neutrals-grayBg text-neutrals-graySoft hover:bg-neutrals-grayBorder'
+                                }`}
+                              >
+                                {item.fue_encontrado ? '✅ Encontrado' : '🔍 Marcar encontrado'}
+                              </button>
+                              <button
+                                onClick={() => eliminarItem(item)}
+                                className="text-xs text-red-500 hover:text-red-700"
+                              >
+                                Eliminar
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -654,222 +635,286 @@ export default function DetallePedidoPage({ params }) {
             </div>
           </div>
         </div>
-      </div>
+      </main>
 
-      {/* Modal Agregar/Editar Item */}
+      {/* Modal Agregar Item */}
       {showModalItem && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'Playfair Display, serif' }}>
-                {itemEditando ? 'Editar artículo' : 'Agregar artículo'}
-              </h2>
+          <div className="card-premium max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center p-5 border-b border-neutrals-grayBorder sticky top-0 bg-white">
+              <h3 className="font-display text-lg font-semibold">Agregar Artículo</h3>
+              <button onClick={() => { setShowModalItem(false); setProductoSeleccionado(null); setBusquedaProducto(''); }}>
+                <svg className="w-6 h-6 text-neutrals-graySoft" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
-            
-            <form onSubmit={guardarItem} className="p-6 space-y-6">
-              {/* Buscador de productos */}
-              {!itemEditando && (
+
+            <div className="p-5 space-y-5">
+              {/* Buscar producto */}
+              {!productoSeleccionado ? (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Buscar producto (opcional)
+                  <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                    Buscar Producto
                   </label>
                   <div className="relative">
                     <input
                       type="text"
-                      placeholder="Buscar por nombre o marca..."
                       value={busquedaProducto}
                       onChange={(e) => setBusquedaProducto(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="input-chic pl-10"
+                      placeholder="Nombre del producto o artículo..."
                     />
-                    {buscandoProductos && (
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-800"></div>
-                      </div>
-                    )}
+                    <svg className="w-5 h-5 text-neutrals-graySoft absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
                   </div>
-                  
+
+                  {/* Resultados */}
                   {productosEncontrados.length > 0 && (
-                    <div className="mt-2 border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
+                    <div className="mt-2 border border-neutrals-grayBorder rounded-xl max-h-60 overflow-y-auto">
                       {productosEncontrados.map((producto) => (
                         <button
                           key={producto.id}
-                          type="button"
                           onClick={() => seleccionarProducto(producto)}
-                          className="w-full text-left p-3 hover:bg-blue-50 border-b border-gray-100 last:border-b-0"
+                          className="w-full flex items-center gap-3 p-3 hover:bg-neutrals-grayBg transition-colors text-left border-b last:border-b-0"
                         >
-                          <p className="font-medium text-gray-900">{producto.titulo}</p>
-                          <p className="text-sm text-gray-500">
-                            {producto.marca && `${producto.marca} • `}
-                            {formatearCOP(producto.precio_final_cop)}
-                          </p>
+                          <div className="w-12 h-12 rounded-lg bg-neutrals-grayBg overflow-hidden">
+                            {producto.imagenes?.[0] ? (
+                              <img src={producto.imagenes[0]} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">📦</div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-neutrals-black truncate">{producto.titulo}</p>
+                            <p className="text-sm text-neutrals-graySoft">
+                              {formatearCOP(producto.precio_final_cop)}
+                              {producto.marca && ` • ${producto.marca}`}
+                            </p>
+                          </div>
                         </button>
                       ))}
                     </div>
                   )}
-                  
-                  <p className="text-xs text-gray-500 mt-2">
-                    Puedes buscar un producto existente o ingresar los datos manualmente
+
+                  <p className="text-xs text-neutrals-graySoft mt-2">
+                    💡 Puedes buscar un producto o escribir directamente el nombre del artículo
                   </p>
+                </div>
+              ) : (
+                <div className="bg-green-50 border border-green-200 rounded-xl p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-lg bg-white overflow-hidden">
+                        {productoSeleccionado.imagenes?.[0] ? (
+                          <img src={productoSeleccionado.imagenes[0]} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">📦</div>
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium text-neutrals-black">{productoSeleccionado.titulo}</p>
+                        <p className="text-sm text-neutrals-graySoft">
+                          Costo: {formatearCOP(productoSeleccionado.costo_total_cop)}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setProductoSeleccionado(null)}
+                      className="text-sm text-red-600 hover:underline"
+                    >
+                      Cambiar
+                    </button>
+                  </div>
                 </div>
               )}
 
-              {/* Datos del artículo */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Título del artículo <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="titulo_articulo"
-                  value={nuevoItem.titulo_articulo}
-                  onChange={handleChangeItem}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  required
-                />
-              </div>
-
+              {/* Cantidad y Precio */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Cantidad</label>
+                  <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                    Cantidad
+                  </label>
                   <input
                     type="number"
-                    name="cantidad"
                     min="1"
                     value={nuevoItem.cantidad}
-                    onChange={handleChangeItem}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    onChange={(e) => setNuevoItem(prev => ({ ...prev, cantidad: e.target.value }))}
+                    className="input-chic"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Talla</label>
+                  <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                    Precio Venta (COP) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={nuevoItem.precio_venta_cop}
+                    onChange={(e) => setNuevoItem(prev => ({ ...prev, precio_venta_cop: e.target.value }))}
+                    className="input-chic"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+
+              {/* Talla y Género */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                    Talla
+                  </label>
                   <input
                     type="text"
-                    name="talla"
                     value={nuevoItem.talla}
-                    onChange={handleChangeItem}
-                    placeholder="M, L, 8 US..."
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Precio venta (COP)</label>
-                  <input
-                    type="number"
-                    name="precio_venta_cop"
-                    min="0"
-                    value={nuevoItem.precio_venta_cop}
-                    onChange={handleChangeItem}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    onChange={(e) => setNuevoItem(prev => ({ ...prev, talla: e.target.value }))}
+                    className="input-chic"
+                    placeholder="M, L, 42, etc."
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Costo (COP)</label>
-                  <input
-                    type="number"
-                    name="costo_cop"
-                    min="0"
-                    value={nuevoItem.costo_cop}
-                    onChange={handleChangeItem}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Género</label>
+                  <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                    Género
+                  </label>
                   <select
-                    name="genero"
                     value={nuevoItem.genero}
-                    onChange={handleChangeItem}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    onChange={(e) => setNuevoItem(prev => ({ ...prev, genero: e.target.value }))}
+                    className="input-chic"
                   >
                     <option value="">Seleccionar...</option>
-                    {GENEROS.map(g => (
-                      <option key={g.value} value={g.value}>{g.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
-                  <select
-                    name="estado_item"
-                    value={nuevoItem.estado_item}
-                    onChange={handleChangeItem}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    {ESTADOS_ITEM.map(e => (
-                      <option key={e.value} value={e.value}>{e.label}</option>
-                    ))}
+                    <option value="hombre">Hombre</option>
+                    <option value="mujer">Mujer</option>
+                    <option value="unisex">Unisex</option>
+                    <option value="nino">Niño</option>
+                    <option value="nina">Niña</option>
                   </select>
                 </div>
               </div>
 
+              {/* Descripción */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Descripción detallada</label>
-                <textarea
-                  name="descripcion_detallada"
-                  value={nuevoItem.descripcion_detallada}
-                  onChange={handleChangeItem}
-                  rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Color, especificaciones, notas..."
-                />
-              </div>
-
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  name="fue_encontrado"
-                  id="fue_encontrado"
-                  checked={nuevoItem.fue_encontrado}
-                  onChange={handleChangeItem}
-                  className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
-                />
-                <label htmlFor="fue_encontrado" className="text-sm text-gray-700">
-                  Artículo encontrado
+                <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                  Descripción Detallada
                 </label>
+                <textarea
+                  value={nuevoItem.descripcion_detallada}
+                  onChange={(e) => setNuevoItem(prev => ({ ...prev, descripcion_detallada: e.target.value }))}
+                  rows={2}
+                  className="input-chic resize-none"
+                  placeholder="Color, características especiales, etc."
+                />
               </div>
 
-              {/* Ganancia calculada */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Ganancia por unidad:</span>
-                  <span className="font-semibold text-green-600">
-                    {formatearCOP(nuevoItem.precio_venta_cop - nuevoItem.costo_cop)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between mt-1">
-                  <span className="text-gray-600">Ganancia total:</span>
-                  <span className="font-bold text-green-600 text-lg">
-                    {formatearCOP((nuevoItem.precio_venta_cop - nuevoItem.costo_cop) * nuevoItem.cantidad)}
-                  </span>
-                </div>
-              </div>
-              
+              {/* Botones */}
               <div className="flex gap-3 pt-4">
                 <button
-                  type="button"
-                  onClick={() => setShowModalItem(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  onClick={() => { setShowModalItem(false); setProductoSeleccionado(null); }}
+                  className="flex-1 btn-secondary"
                 >
                   Cancelar
                 </button>
                 <button
-                  type="submit"
-                  disabled={saving}
-                  className="flex-1 px-4 py-2 bg-blue-800 text-white rounded-lg hover:bg-blue-900 transition-colors disabled:opacity-50"
+                  onClick={agregarItem}
+                  disabled={actionLoading}
+                  className="flex-1 btn-primary"
                 >
-                  {saving ? 'Guardando...' : 'Guardar'}
+                  {actionLoading ? 'Agregando...' : 'Agregar Artículo'}
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
-    </div>
+
+      {/* Modal Editar Pedido */}
+      {showModalEditar && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="card-premium max-w-md w-full">
+            <div className="flex justify-between items-center p-5 border-b border-neutrals-grayBorder">
+              <h3 className="font-display text-lg font-semibold">Editar Pedido</h3>
+              <button onClick={() => setShowModalEditar(false)}>
+                <svg className="w-6 h-6 text-neutrals-graySoft" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-5 space-y-5">
+              {/* Estado */}
+              <div>
+                <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                  Estado del Pedido
+                </label>
+                <select
+                  value={editarPedido.estado_pedido}
+                  onChange={(e) => setEditarPedido(prev => ({ ...prev, estado_pedido: e.target.value }))}
+                  className="input-chic"
+                >
+                  {Object.entries(ESTADOS_PEDIDO).map(([key, { label, icon }]) => (
+                    <option key={key} value={key}>{icon} {label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Fechas */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                    Fecha Envío Aprox.
+                  </label>
+                  <input
+                    type="date"
+                    value={editarPedido.fecha_probable_envio}
+                    onChange={(e) => setEditarPedido(prev => ({ ...prev, fecha_probable_envio: e.target.value }))}
+                    className="input-chic"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                    Fecha Entrega
+                  </label>
+                  <input
+                    type="date"
+                    value={editarPedido.fecha_entrega}
+                    onChange={(e) => setEditarPedido(prev => ({ ...prev, fecha_entrega: e.target.value }))}
+                    className="input-chic"
+                  />
+                </div>
+              </div>
+
+              {/* Notas */}
+              <div>
+                <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                  Notas Internas
+                </label>
+                <textarea
+                  value={editarPedido.notas_internas}
+                  onChange={(e) => setEditarPedido(prev => ({ ...prev, notas_internas: e.target.value }))}
+                  rows={3}
+                  className="input-chic resize-none"
+                />
+              </div>
+
+              {/* Botones */}
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setShowModalEditar(false)}
+                  className="flex-1 btn-secondary"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={guardarCambiosPedido}
+                  disabled={actionLoading}
+                  className="flex-1 btn-primary"
+                >
+                  {actionLoading ? 'Guardando...' : 'Guardar Cambios'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </AdminLayout>
   )
 }

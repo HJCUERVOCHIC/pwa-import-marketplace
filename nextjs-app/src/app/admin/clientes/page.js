@@ -1,25 +1,33 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { supabase } from '@/lib/supabase'
+import AdminLayout from '@/components/AdminLayout'
 
+// Opciones de canal preferido
 const CANALES = [
-  { value: 'whatsapp', label: 'WhatsApp' },
-  { value: 'instagram', label: 'Instagram' },
-  { value: 'facebook', label: 'Facebook' },
-  { value: 'referido', label: 'Referido' },
-  { value: 'otro', label: 'Otro' }
+  { value: 'whatsapp', label: 'WhatsApp', icon: '💬' },
+  { value: 'llamada', label: 'Llamada', icon: '📞' },
+  { value: 'instagram', label: 'Instagram', icon: '📸' },
+  { value: 'facebook', label: 'Facebook', icon: '👤' },
+  { value: 'presencial', label: 'Presencial', icon: '🏪' },
+  { value: 'otro', label: 'Otro', icon: '📋' }
 ]
 
 export default function ClientesPage() {
+  const router = useRouter()
+  
   const [clientes, setClientes] = useState([])
   const [loading, setLoading] = useState(true)
-  const [busqueda, setBusqueda] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [modoEdicion, setModoEdicion] = useState(false)
   const [clienteEditando, setClienteEditando] = useState(null)
-  const [saving, setSaving] = useState(false)
-  
+  const [actionLoading, setActionLoading] = useState(false)
+  const [busqueda, setBusqueda] = useState('')
+  const [totalClientes, setTotalClientes] = useState(0)
+
   const [formData, setFormData] = useState({
     telefono: '',
     nombres: '',
@@ -28,36 +36,125 @@ export default function ClientesPage() {
     canal_preferido: '',
     notas: ''
   })
+  const [errors, setErrors] = useState({})
 
   useEffect(() => {
+    checkAuth()
     cargarClientes()
   }, [])
 
-  const cargarClientes = async () => {
-    setLoading(true)
-    const { data, error } = await supabase
-      .from('clientes')
-      .select('*')
-      .order('created_at', { ascending: false })
-    
-    if (!error) {
-      setClientes(data || [])
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      cargarClientes()
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [busqueda])
+
+  const checkAuth = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      router.push('/auth')
     }
-    setLoading(false)
   }
 
-  const clientesFiltrados = clientes.filter(cliente => {
-    const termino = busqueda.toLowerCase()
-    return (
-      cliente.telefono?.toLowerCase().includes(termino) ||
-      cliente.nombres?.toLowerCase().includes(termino) ||
-      cliente.apellidos?.toLowerCase().includes(termino) ||
-      cliente.alias_whatsapp?.toLowerCase().includes(termino)
-    )
-  })
+  const cargarClientes = async () => {
+    setLoading(true)
+    try {
+      let query = supabase
+        .from('clientes')
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false })
 
-  const abrirModalNuevo = () => {
-    setClienteEditando(null)
+      // Aplicar búsqueda si existe
+      if (busqueda.trim()) {
+        query = query.or(`telefono.ilike.%${busqueda}%,nombres.ilike.%${busqueda}%,apellidos.ilike.%${busqueda}%,alias_whatsapp.ilike.%${busqueda}%`)
+      }
+
+      const { data, error, count } = await query
+
+      if (error) throw error
+      setClientes(data || [])
+      setTotalClientes(count || 0)
+    } catch (error) {
+      console.error('Error cargando clientes:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleChange = (e) => {
+    const { name, value } = e.target
+    setFormData(prev => ({ ...prev, [name]: value }))
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: null }))
+    }
+  }
+
+  const validarFormulario = () => {
+    const newErrors = {}
+    
+    if (!formData.telefono.trim()) {
+      newErrors.telefono = 'El teléfono es requerido'
+    } else if (!/^[0-9+\-\s()]+$/.test(formData.telefono)) {
+      newErrors.telefono = 'Formato de teléfono inválido'
+    }
+    
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!validarFormulario()) return
+
+    setActionLoading(true)
+    try {
+      const datosCliente = {
+        telefono: formData.telefono.trim(),
+        nombres: formData.nombres.trim() || null,
+        apellidos: formData.apellidos.trim() || null,
+        alias_whatsapp: formData.alias_whatsapp.trim() || null,
+        canal_preferido: formData.canal_preferido || null,
+        notas: formData.notas.trim() || null,
+        updated_at: new Date().toISOString()
+      }
+
+      let error
+
+      if (modoEdicion && clienteEditando) {
+        const resultado = await supabase
+          .from('clientes')
+          .update(datosCliente)
+          .eq('id', clienteEditando.id)
+        
+        error = resultado.error
+      } else {
+        const resultado = await supabase
+          .from('clientes')
+          .insert([datosCliente])
+        
+        error = resultado.error
+      }
+
+      if (error) {
+        if (error.code === '23505') {
+          setErrors({ telefono: 'Este teléfono ya está registrado' })
+          return
+        }
+        throw error
+      }
+
+      setShowModal(false)
+      resetForm()
+      cargarClientes()
+    } catch (error) {
+      alert(`Error al ${modoEdicion ? 'actualizar' : 'crear'} cliente: ` + error.message)
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const resetForm = () => {
     setFormData({
       telefono: '',
       nombres: '',
@@ -66,10 +163,13 @@ export default function ClientesPage() {
       canal_preferido: '',
       notas: ''
     })
-    setShowModal(true)
+    setErrors({})
+    setModoEdicion(false)
+    setClienteEditando(null)
   }
 
-  const abrirModalEditar = (cliente) => {
+  const handleEditarCliente = (cliente) => {
+    setModoEdicion(true)
     setClienteEditando(cliente)
     setFormData({
       telefono: cliente.telefono || '',
@@ -82,383 +182,391 @@ export default function ClientesPage() {
     setShowModal(true)
   }
 
-  const handleChange = (e) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
-  }
+  const handleEliminarCliente = async (cliente) => {
+    const confirmar = window.confirm(
+      `¿Estás seguro de eliminar al cliente "${cliente.nombres || cliente.telefono}"?\n\nEsta acción no se puede deshacer.`
+    )
+    
+    if (!confirmar) return
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    
-    if (!formData.telefono.trim()) {
-      alert('El teléfono es obligatorio')
-      return
-    }
-    
-    setSaving(true)
-    
+    setActionLoading(true)
     try {
-      if (clienteEditando) {
-        // Actualizar
-        const { error } = await supabase
-          .from('clientes')
-          .update({
-            telefono: formData.telefono.trim(),
-            nombres: formData.nombres.trim() || null,
-            apellidos: formData.apellidos.trim() || null,
-            alias_whatsapp: formData.alias_whatsapp.trim() || null,
-            canal_preferido: formData.canal_preferido || null,
-            notas: formData.notas.trim() || null
-          })
-          .eq('id', clienteEditando.id)
-        
-        if (error) throw error
-      } else {
-        // Crear nuevo
-        const { error } = await supabase
-          .from('clientes')
-          .insert({
-            telefono: formData.telefono.trim(),
-            nombres: formData.nombres.trim() || null,
-            apellidos: formData.apellidos.trim() || null,
-            alias_whatsapp: formData.alias_whatsapp.trim() || null,
-            canal_preferido: formData.canal_preferido || null,
-            notas: formData.notas.trim() || null
-          })
-        
-        if (error) {
-          if (error.code === '23505') {
-            throw new Error('Ya existe un cliente con este teléfono')
-          }
-          throw error
+      const { error } = await supabase
+        .from('clientes')
+        .delete()
+        .eq('id', cliente.id)
+
+      if (error) {
+        if (error.code === '23503') {
+          alert('No se puede eliminar el cliente porque tiene pedidos asociados.')
+          return
         }
+        throw error
       }
-      
-      setShowModal(false)
+
       cargarClientes()
     } catch (error) {
-      alert('Error: ' + error.message)
+      alert('Error al eliminar: ' + error.message)
     } finally {
-      setSaving(false)
+      setActionLoading(false)
     }
   }
 
-  const eliminarCliente = async (cliente) => {
-    if (!confirm(`¿Eliminar cliente ${cliente.telefono}?`)) return
-    
-    const { error } = await supabase
-      .from('clientes')
-      .delete()
-      .eq('id', cliente.id)
-    
-    if (error) {
-      if (error.code === '23503') {
-        alert('No se puede eliminar: el cliente tiene pedidos asociados')
-      } else {
-        alert('Error: ' + error.message)
-      }
-    } else {
-      cargarClientes()
-    }
+  const getNombreCompleto = (cliente) => {
+    const partes = [cliente.nombres, cliente.apellidos].filter(Boolean)
+    return partes.length > 0 ? partes.join(' ') : null
   }
 
   const formatearFecha = (fecha) => {
+    if (!fecha) return '-'
     return new Date(fecha).toLocaleDateString('es-CO', {
-      day: 'numeric',
+      day: '2-digit',
       month: 'short',
       year: 'numeric'
     })
   }
 
-  const getNombreCompleto = (cliente) => {
-    const partes = [cliente.nombres, cliente.apellidos].filter(Boolean)
-    return partes.length > 0 ? partes.join(' ') : '-'
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50">
+    <AdminLayout>
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-900" style={{ fontFamily: 'Playfair Display, serif' }}>
+      <header className="bg-white border-b-[3px] border-blue-elegant">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="flex flex-col">
+              <h1 className="font-display text-2xl sm:text-3xl font-semibold text-neutrals-black">
                 Clientes
               </h1>
-              <p className="text-sm text-gray-500 mt-1">
-                Gestión de clientes para toma de pedidos
+              <p className="text-neutrals-graySoft text-sm mt-1">
+                {totalClientes} cliente{totalClientes !== 1 ? 's' : ''} registrado{totalClientes !== 1 ? 's' : ''}
               </p>
             </div>
-            <button
-              onClick={abrirModalNuevo}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-800 text-white rounded-lg hover:bg-blue-900 transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Nuevo cliente
-            </button>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              {/* Buscador */}
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Buscar por teléfono, nombre..."
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  className="input-chic pl-10 w-full sm:w-64"
+                />
+                <svg className="w-5 h-5 text-neutrals-graySoft absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+
+              {/* Botón Nuevo Cliente */}
+              <button
+                onClick={() => { resetForm(); setShowModal(true); }}
+                className="btn-primary flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                <span>Nuevo Cliente</span>
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="max-w-7xl mx-auto px-6 py-6">
-        {/* Buscador */}
-        <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
-          <div className="relative">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text"
-              placeholder="Buscar por teléfono, nombre o alias..."
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-        </div>
-
-        {/* Lista de clientes */}
+      {/* Contenido Principal */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-800"></div>
+          <div className="flex items-center justify-center py-16">
+            <div className="text-center">
+              <div className="w-12 h-12 border-4 border-blue-elegant border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-neutrals-graySoft">Cargando clientes...</p>
+            </div>
           </div>
-        ) : clientesFiltrados.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm p-12 text-center">
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-blue-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        ) : clientes.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="w-20 h-20 bg-neutrals-grayBg rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-10 h-10 text-neutrals-graySoft" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {busqueda ? 'No se encontraron clientes' : 'No hay clientes registrados'}
+            <h3 className="font-display text-xl font-semibold text-neutrals-black mb-2">
+              {busqueda ? 'No se encontraron clientes' : 'Sin clientes aún'}
             </h3>
-            <p className="text-gray-500 text-sm">
-              {busqueda ? 'Intenta con otros términos de búsqueda' : 'Comienza agregando tu primer cliente'}
+            <p className="text-neutrals-graySoft mb-6">
+              {busqueda 
+                ? 'Intenta con otros términos de búsqueda'
+                : 'Agrega tu primer cliente para comenzar'}
             </p>
+            {!busqueda && (
+              <button
+                onClick={() => { resetForm(); setShowModal(true); }}
+                className="btn-primary"
+              >
+                Agregar Cliente
+              </button>
+            )}
           </div>
         ) : (
           <>
-            {/* Vista desktop - Tabla */}
-            <div className="hidden md:block bg-white rounded-xl shadow-sm overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Teléfono</th>
-                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
-                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Alias WhatsApp</th>
-                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Canal</th>
-                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Creado</th>
-                    <th className="text-right px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {clientesFiltrados.map((cliente) => (
-                    <tr key={cliente.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
-                        <span className="font-medium text-gray-900">{cliente.telefono}</span>
-                      </td>
-                      <td className="px-6 py-4 text-gray-600">
-                        {getNombreCompleto(cliente)}
-                      </td>
-                      <td className="px-6 py-4 text-gray-600">
-                        {cliente.alias_whatsapp || '-'}
-                      </td>
-                      <td className="px-6 py-4">
-                        {cliente.canal_preferido ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize">
-                            {cliente.canal_preferido}
-                          </span>
-                        ) : '-'}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {formatearFecha(cliente.created_at)}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => abrirModalEditar(cliente)}
-                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                          >
-                            Editar
-                          </button>
-                          <Link
-                            href={`/admin/pedidos?cliente=${cliente.id}`}
-                            className="text-gray-600 hover:text-gray-800 text-sm font-medium"
-                          >
-                            Pedidos
-                          </Link>
-                          <button
-                            onClick={() => eliminarCliente(cliente)}
-                            className="text-red-600 hover:text-red-800 text-sm font-medium"
-                          >
-                            Eliminar
-                          </button>
-                        </div>
-                      </td>
+            {/* Tabla de Clientes */}
+            <div className="card-premium overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-neutrals-grayBg border-b border-neutrals-grayBorder">
+                      <th className="text-left py-4 px-4 font-semibold text-neutrals-grayStrong text-sm">Cliente</th>
+                      <th className="text-left py-4 px-4 font-semibold text-neutrals-grayStrong text-sm">Teléfono</th>
+                      <th className="text-left py-4 px-4 font-semibold text-neutrals-grayStrong text-sm hidden md:table-cell">Canal</th>
+                      <th className="text-left py-4 px-4 font-semibold text-neutrals-grayStrong text-sm hidden lg:table-cell">Registro</th>
+                      <th className="text-right py-4 px-4 font-semibold text-neutrals-grayStrong text-sm">Acciones</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {clientes.map((cliente, index) => {
+                      const nombreCompleto = getNombreCompleto(cliente)
+                      const canalInfo = CANALES.find(c => c.value === cliente.canal_preferido)
+                      
+                      return (
+                        <tr 
+                          key={cliente.id}
+                          className="border-b border-neutrals-grayBorder hover:bg-neutrals-grayBg/50 transition-colors"
+                        >
+                          <td className="py-4 px-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-elegant to-blue-800 flex items-center justify-center text-white font-semibold text-sm">
+                                {(cliente.nombres?.[0] || cliente.telefono?.[0] || '?').toUpperCase()}
+                              </div>
+                              <div>
+                                <p className="font-medium text-neutrals-black">
+                                  {nombreCompleto || 'Sin nombre'}
+                                </p>
+                                {cliente.alias_whatsapp && (
+                                  <p className="text-xs text-neutrals-graySoft">
+                                    @{cliente.alias_whatsapp}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <a 
+                              href={`https://wa.me/${cliente.telefono.replace(/[^0-9]/g, '')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-elegant hover:underline font-medium"
+                            >
+                              {cliente.telefono}
+                            </a>
+                          </td>
+                          <td className="py-4 px-4 hidden md:table-cell">
+                            {canalInfo ? (
+                              <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-neutrals-grayBg rounded-md text-sm">
+                                <span>{canalInfo.icon}</span>
+                                <span>{canalInfo.label}</span>
+                              </span>
+                            ) : (
+                              <span className="text-neutrals-graySoft text-sm">-</span>
+                            )}
+                          </td>
+                          <td className="py-4 px-4 hidden lg:table-cell text-sm text-neutrals-graySoft">
+                            {formatearFecha(cliente.created_at)}
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="flex items-center justify-end gap-2">
+                              {/* Ver Pedidos */}
+                              <Link
+                                href={`/admin/pedidos?cliente=${cliente.id}`}
+                                className="p-2 text-neutrals-graySoft hover:text-blue-elegant hover:bg-blue-elegant/10 rounded-lg transition-colors"
+                                title="Ver pedidos"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                                </svg>
+                              </Link>
+                              
+                              {/* Editar */}
+                              <button
+                                onClick={() => handleEditarCliente(cliente)}
+                                className="p-2 text-neutrals-graySoft hover:text-blue-elegant hover:bg-blue-elegant/10 rounded-lg transition-colors"
+                                title="Editar"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
 
-            {/* Vista móvil - Cards */}
-            <div className="md:hidden space-y-3">
-              {clientesFiltrados.map((cliente) => (
-                <div key={cliente.id} className="bg-white rounded-xl shadow-sm p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <p className="font-semibold text-gray-900">{cliente.telefono}</p>
-                      <p className="text-sm text-gray-600">{getNombreCompleto(cliente)}</p>
-                    </div>
-                    {cliente.canal_preferido && (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize">
-                        {cliente.canal_preferido}
-                      </span>
-                    )}
-                  </div>
-                  
-                  {cliente.alias_whatsapp && (
-                    <p className="text-sm text-gray-500 mb-3">
-                      Alias: {cliente.alias_whatsapp}
-                    </p>
-                  )}
-                  
-                  <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                    <span className="text-xs text-gray-400">
-                      {formatearFecha(cliente.created_at)}
-                    </span>
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => abrirModalEditar(cliente)}
-                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                      >
-                        Editar
-                      </button>
-                      <Link
-                        href={`/admin/pedidos?cliente=${cliente.id}`}
-                        className="text-gray-600 hover:text-gray-800 text-sm font-medium"
-                      >
-                        Pedidos
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                              {/* Eliminar */}
+                              <button
+                                onClick={() => handleEliminarCliente(cliente)}
+                                disabled={actionLoading}
+                                className="p-2 text-neutrals-graySoft hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Eliminar"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </>
         )}
-      </div>
+      </main>
 
       {/* Modal Crear/Editar Cliente */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'Playfair Display, serif' }}>
-                {clienteEditando ? 'Editar cliente' : 'Nuevo cliente'}
-              </h2>
-            </div>
-            
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="card-premium max-w-lg w-full animate-fade-in-up">
+            {/* Header del Modal */}
+            <div className="flex justify-between items-center p-6 border-b border-neutrals-grayBorder">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Teléfono <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="tel"
-                  name="telefono"
-                  value={formData.telefono}
-                  onChange={handleChange}
-                  placeholder="+57 300 000 0000"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  required
-                />
+                <h3 className="font-display text-xl font-semibold text-neutrals-black">
+                  {modoEdicion ? 'Editar Cliente' : 'Nuevo Cliente'}
+                </h3>
+                <p className="text-sm text-neutrals-graySoft mt-1">
+                  {modoEdicion ? 'Modifica los datos del cliente' : 'Solo el teléfono es obligatorio'}
+                </p>
               </div>
-              
+              <button 
+                onClick={() => { setShowModal(false); resetForm(); }} 
+                className="text-neutrals-graySoft hover:text-neutrals-black"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Formulario */}
+            <form onSubmit={handleSubmit} className="p-6 space-y-5">
+              {/* Teléfono */}
+              <div>
+                <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                  Teléfono <span className="text-feedback-error">*</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutrals-graySoft">
+                    📱
+                  </span>
+                  <input
+                    type="tel"
+                    name="telefono"
+                    value={formData.telefono}
+                    onChange={handleChange}
+                    className={`input-chic pl-10 ${errors.telefono ? 'border-feedback-error' : ''}`}
+                    placeholder="+57 300 123 4567"
+                  />
+                </div>
+                {errors.telefono && (
+                  <p className="text-feedback-error text-sm mt-1">{errors.telefono}</p>
+                )}
+              </div>
+
+              {/* Nombres y Apellidos */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Nombres</label>
+                  <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                    Nombres
+                  </label>
                   <input
                     type="text"
                     name="nombres"
                     value={formData.nombres}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="input-chic"
+                    placeholder="Juan Carlos"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Apellidos</label>
+                  <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                    Apellidos
+                  </label>
                   <input
                     type="text"
                     name="apellidos"
                     value={formData.apellidos}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="input-chic"
+                    placeholder="García López"
                   />
                 </div>
               </div>
-              
+
+              {/* Alias WhatsApp */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Alias WhatsApp</label>
+                <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                  Alias en WhatsApp
+                </label>
                 <input
                   type="text"
                   name="alias_whatsapp"
                   value={formData.alias_whatsapp}
                   onChange={handleChange}
-                  placeholder="Nombre en WhatsApp"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="input-chic"
+                  placeholder="El nombre que aparece en WhatsApp"
                 />
               </div>
-              
+
+              {/* Canal Preferido */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Canal preferido</label>
+                <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                  Canal Preferido
+                </label>
                 <select
                   name="canal_preferido"
                   value={formData.canal_preferido}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="input-chic"
                 >
-                  <option value="">Seleccionar...</option>
+                  <option value="">Seleccionar canal...</option>
                   {CANALES.map(canal => (
-                    <option key={canal.value} value={canal.value}>{canal.label}</option>
+                    <option key={canal.value} value={canal.value}>
+                      {canal.icon} {canal.label}
+                    </option>
                   ))}
                 </select>
               </div>
-              
+
+              {/* Notas */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
+                <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                  Notas
+                </label>
                 <textarea
                   name="notas"
                   value={formData.notas}
                   onChange={handleChange}
                   rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Notas internas sobre el cliente..."
+                  className="input-chic resize-none"
+                  placeholder="Información adicional sobre el cliente..."
                 />
               </div>
-              
+
+              {/* Botones */}
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  onClick={() => { setShowModal(false); resetForm(); }}
+                  className="flex-1 btn-secondary"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  disabled={saving}
-                  className="flex-1 px-4 py-2 bg-blue-800 text-white rounded-lg hover:bg-blue-900 transition-colors disabled:opacity-50"
+                  disabled={actionLoading}
+                  className="flex-1 btn-primary"
                 >
-                  {saving ? 'Guardando...' : 'Guardar'}
+                  {actionLoading ? 'Guardando...' : (modoEdicion ? 'Guardar Cambios' : 'Crear Cliente')}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
-    </div>
+    </AdminLayout>
   )
 }
