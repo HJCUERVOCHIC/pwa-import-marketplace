@@ -1,7 +1,32 @@
-// Servicio para compartir productos y listas por WhatsApp
-// Sesion 011 - Chic Import USA
+// Servicio para compartir por WhatsApp
+// Proyecto: Chic Import USA
+// Ubicación: src/services/whatsappService.js
+// 
+// Funcionalidades:
+// - Compartir productos del catálogo (con imagen generada por canvas)
+// - Compartir listas de productos
+// - Enviar confirmación de pedidos (con imágenes subidas)
 
-import { APP_CONFIG } from '../config/app.config';
+// =====================================================
+// CONFIGURACIÓN (reemplaza APP_CONFIG)
+// =====================================================
+
+const CONFIG = {
+  siteName: 'Chic Import USA',
+  publicUrl: typeof window !== 'undefined' ? window.location.origin : '',
+  limits: {
+    maxProductosEnMensaje: 10,
+    maxCaracteresWhatsApp: 65536
+  },
+  routes: {
+    catalogoLista: (idLista) => `/catalogo/${idLista}`,
+    catalogoProducto: (idLista, idProducto) => `/catalogo/${idLista}/${idProducto}`
+  }
+};
+
+// =====================================================
+// UTILIDADES DE URL
+// =====================================================
 
 /**
  * Genera URL absoluta para una lista
@@ -9,8 +34,8 @@ import { APP_CONFIG } from '../config/app.config';
  * @returns {string} URL absoluta
  */
 export const generarUrlLista = (idLista) => {
-  const path = APP_CONFIG.routes.catalogoLista(idLista);
-  return `${APP_CONFIG.publicUrl}${path}`;
+  const path = CONFIG.routes.catalogoLista(idLista);
+  return `${CONFIG.publicUrl}${path}`;
 };
 
 /**
@@ -20,9 +45,13 @@ export const generarUrlLista = (idLista) => {
  * @returns {string} URL absoluta
  */
 export const generarUrlProducto = (idLista, idProducto) => {
-  const path = APP_CONFIG.routes.catalogoProducto(idLista, idProducto);
-  return `${APP_CONFIG.publicUrl}${path}`;
+  const path = CONFIG.routes.catalogoProducto(idLista, idProducto);
+  return `${CONFIG.publicUrl}${path}`;
 };
+
+// =====================================================
+// FORMATEO DE PRECIOS
+// =====================================================
 
 /**
  * Formatea precio en formato colombiano
@@ -34,6 +63,10 @@ export const formatearPrecioCOP = (precio) => {
   return `$${precio.toLocaleString('es-CO')} COP`;
 };
 
+// =====================================================
+// MENSAJES PARA PRODUCTOS Y LISTAS
+// =====================================================
+
 /**
  * Genera mensaje de WhatsApp para compartir un producto
  * @param {Object} producto - Objeto producto con: titulo, marca, precio_final_cop
@@ -43,13 +76,6 @@ export const formatearPrecioCOP = (precio) => {
 export const generarMensajeProducto = (producto, idLista) => {
   const url = generarUrlProducto(idLista, producto.id);
   const precio = formatearPrecioCOP(producto.precio_final_cop);
-  
-  // Formato segun especificacion:
-  // Titulo
-  // Marca: X
-  // Precio: $XXX COP
-  //
-  // URL
   
   let mensaje = `${producto.titulo}\n`;
   
@@ -72,29 +98,17 @@ export const generarMensajeProducto = (producto, idLista) => {
  */
 export const generarMensajeLista = (lista, productos, idLista) => {
   const url = generarUrlLista(idLista);
-  const maxProductos = APP_CONFIG.limits.maxProductosEnMensaje;
+  const maxProductos = CONFIG.limits.maxProductosEnMensaje;
   
-  // Formato segun especificacion:
-  // Titulo de oferta emoji
-  //
-  // Producto 1 - Precio
-  // Producto 2 - Precio
-  // ...
-  //
-  // Ver todos:
-  // URL
+  let mensaje = `¡Nueva oferta disponible en ${CONFIG.siteName}! 🎉\n\n`;
   
-  let mensaje = `¡Nueva oferta disponible en ${APP_CONFIG.siteName}! 🎉\n\n`;
-  
-  // Agregar productos (maximo 10)
   const productosAMostrar = productos.slice(0, maxProductos);
   
   productosAMostrar.forEach((producto) => {
     const precio = formatearPrecioCOP(producto.precio_final_cop);
-    mensaje += `${producto.titulo} – ${precio}\n\n`;
+    mensaje += `${producto.titulo} — ${precio}\n\n`;
   });
   
-  // Si hay mas de 10 productos
   if (productos.length > maxProductos) {
     mensaje += `... y más productos disponibles en el enlace.\n\n`;
   }
@@ -105,35 +119,49 @@ export const generarMensajeLista = (lista, productos, idLista) => {
   return mensaje;
 };
 
-/**
- * Valida si un mensaje esta dentro del limite de WhatsApp
- * @param {string} mensaje - Mensaje a validar
- * @returns {boolean} true si es valido
- */
-export const validarLongitudMensaje = (mensaje) => {
-  return mensaje.length <= APP_CONFIG.limits.maxCaracteresWhatsApp;
-};
+// =====================================================
+// MENSAJE PARA CONFIRMACIÓN DE PEDIDOS
+// PLANTILLA OFICIAL - NO MODIFICAR
+// =====================================================
 
 /**
- * Abre WhatsApp con mensaje preformateado
- * @param {string} mensaje - Mensaje a compartir
+ * Genera mensaje de confirmación para pedido encontrado
+ * @param {Object} item - Item del pedido (pedido_items)
+ * @returns {string} Mensaje formateado según plantilla oficial
  */
-export const compartirPorWhatsApp = (mensaje) => {
-  // Validar longitud
-  if (!validarLongitudMensaje(mensaje)) {
-    console.warn('Mensaje excede limite de WhatsApp, sera truncado');
-    mensaje = mensaje.substring(0, APP_CONFIG.limits.maxCaracteresWhatsApp - 100) + '...';
-  }
-  
-  // URL encode del mensaje
-  const mensajeCodificado = encodeURIComponent(mensaje);
-  
-  // Construir URL de WhatsApp
-  // https://wa.me/?text=MENSAJE_CODIFICADO
-  const whatsappUrl = `https://wa.me/?text=${mensajeCodificado}`;
-  
-  // Abrir en nueva pestana
-  window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+export const generarMensajeConfirmacionPedido = (item) => {
+  return `Hola 👋
+
+Hemos encontrado el producto que solicitaste en Chic Import USA 🇺🇸✨
+
+🛍️ Producto: ${item.titulo_articulo || 'Producto'}
+👤 Sexo: ${item.genero || 'No especificado'}
+📏 Talla: ${item.talla || 'No especificada'}
+📝 Detalles: ${item.descripcion_detallada || 'Sin observaciones'}
+
+📸 Te enviamos la imagen del producto encontrado para que la revises.
+
+Por favor confírmanos respondiendo a este mensaje:
+
+✅ *CONFIRMAR*  
+❌ *RECHAZAR*
+
+Tan pronto confirmes, procederemos con la compra y el proceso de envío 📦✈️
+
+Gracias por confiar en Chic Import USA 💙`;
+};
+
+// =====================================================
+// VALIDACIONES
+// =====================================================
+
+/**
+ * Valida si un mensaje está dentro del límite de WhatsApp
+ * @param {string} mensaje - Mensaje a validar
+ * @returns {boolean} true si es válido
+ */
+export const validarLongitudMensaje = (mensaje) => {
+  return mensaje.length <= CONFIG.limits.maxCaracteresWhatsApp;
 };
 
 /**
@@ -152,18 +180,58 @@ export const puedeCompartirseProducto = (producto) => {
  * @returns {boolean} true si puede compartirse
  */
 export const puedeCompartirseLista = (lista, productos = []) => {
-  // Solo listas publicadas o cerradas
   if (!['publicada', 'cerrada'].includes(lista.estado)) {
     return false;
   }
   
-  // Debe tener al menos 1 producto publicado
   const productosPublicados = productos.filter(p => p.estado === 'publicado');
   return productosPublicados.length > 0;
 };
 
+// =====================================================
+// FUNCIONES DE COMPARTIR - BÁSICAS
+// =====================================================
+
 /**
- * Funcion principal para compartir un producto
+ * Abre WhatsApp con mensaje preformateado (sin número específico)
+ * @param {string} mensaje - Mensaje a compartir
+ */
+export const compartirPorWhatsApp = (mensaje) => {
+  if (!validarLongitudMensaje(mensaje)) {
+    console.warn('Mensaje excede límite de WhatsApp, será truncado');
+    mensaje = mensaje.substring(0, CONFIG.limits.maxCaracteresWhatsApp - 100) + '...';
+  }
+  
+  const mensajeCodificado = encodeURIComponent(mensaje);
+  const whatsappUrl = `https://wa.me/?text=${mensajeCodificado}`;
+  
+  window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+};
+
+/**
+ * Abre WhatsApp con mensaje preformateado a un número específico
+ * @param {string} telefono - Número de teléfono
+ * @param {string} mensaje - Mensaje a compartir
+ */
+export const compartirPorWhatsAppANumero = (telefono, mensaje) => {
+  if (!validarLongitudMensaje(mensaje)) {
+    console.warn('Mensaje excede límite de WhatsApp, será truncado');
+    mensaje = mensaje.substring(0, CONFIG.limits.maxCaracteresWhatsApp - 100) + '...';
+  }
+  
+  const telefonoLimpio = telefono.replace(/[^0-9]/g, '');
+  const mensajeCodificado = encodeURIComponent(mensaje);
+  const whatsappUrl = `https://wa.me/${telefonoLimpio}?text=${mensajeCodificado}`;
+  
+  window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+};
+
+// =====================================================
+// FUNCIONES DE COMPARTIR - PRODUCTOS Y LISTAS
+// =====================================================
+
+/**
+ * Función principal para compartir un producto
  * @param {Object} producto - Producto a compartir
  * @param {string} idLista - UUID de la lista
  */
@@ -178,13 +246,12 @@ export const compartirProducto = (producto, idLista) => {
 };
 
 /**
- * Funcion principal para compartir una lista
+ * Función principal para compartir una lista
  * @param {Object} lista - Lista a compartir
  * @param {Array} productos - Productos de la lista
  * @param {string} idLista - UUID de la lista
  */
 export const compartirLista = (lista, productos, idLista) => {
-  // Filtrar solo productos publicados
   const productosPublicados = productos.filter(p => p.estado === 'publicado');
   
   if (!puedeCompartirseLista(lista, productosPublicados)) {
@@ -194,4 +261,254 @@ export const compartirLista = (lista, productos, idLista) => {
   
   const mensaje = generarMensajeLista(lista, productosPublicados, idLista);
   compartirPorWhatsApp(mensaje);
+};
+
+// =====================================================
+// FUNCIONES DE COMPARTIR - CON IMÁGENES (Web Share API)
+// =====================================================
+
+/**
+ * Verifica si el navegador soporta Web Share API
+ * @returns {boolean}
+ */
+export const soportaWebShare = () => {
+  return typeof navigator !== 'undefined' && !!navigator.share;
+};
+
+/**
+ * Verifica si el navegador puede compartir archivos
+ * @param {File[]} files - Archivos a verificar
+ * @returns {boolean}
+ */
+export const puedeCompartirArchivos = (files) => {
+  if (!navigator.canShare) return false;
+  return navigator.canShare({ files });
+};
+
+/**
+ * Convierte URLs de imágenes a objetos File
+ * @param {string[]} urls - Array de URLs de imágenes
+ * @param {string} nombreBase - Nombre base para los archivos
+ * @returns {Promise<File[]>} Array de Files
+ */
+export const urlsAFiles = async (urls, nombreBase = 'imagen') => {
+  const files = [];
+  
+  for (let i = 0; i < urls.length; i++) {
+    try {
+      const response = await fetch(urls[i]);
+      const blob = await response.blob();
+      const extension = urls[i].split('.').pop()?.split('?')[0] || 'jpg';
+      const file = new File(
+        [blob], 
+        `${nombreBase}_${i + 1}.${extension}`, 
+        { type: blob.type || 'image/jpeg' }
+      );
+      files.push(file);
+    } catch (error) {
+      console.error(`Error convirtiendo imagen ${i + 1}:`, error);
+    }
+  }
+  
+  return files;
+};
+
+/**
+ * Comparte archivos usando Web Share API
+ * @param {File[]} files - Archivos a compartir
+ * @returns {Promise<boolean>} true si se compartió exitosamente
+ */
+export const compartirArchivos = async (files) => {
+  if (!soportaWebShare()) {
+    throw new Error('Web Share API no soportada');
+  }
+  
+  if (!puedeCompartirArchivos(files)) {
+    throw new Error('No se pueden compartir estos archivos');
+  }
+  
+  try {
+    await navigator.share({ files });
+    return true;
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      return false; // Usuario canceló
+    }
+    throw error;
+  }
+};
+
+/**
+ * Descarga imágenes desde URLs
+ * @param {string[]} urls - URLs de las imágenes
+ * @param {string} nombreBase - Nombre base para los archivos
+ */
+export const descargarImagenes = async (urls, nombreBase = 'imagen') => {
+  for (let i = 0; i < urls.length; i++) {
+    try {
+      const response = await fetch(urls[i]);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${nombreBase}_${i + 1}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      // Pequeña pausa entre descargas
+      if (i < urls.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+    } catch (error) {
+      console.error(`Error descargando imagen ${i + 1}:`, error);
+    }
+  }
+};
+
+/**
+ * Comparte imagen generada (blob) usando Web Share API
+ * Similar a handleCompartirWhatsApp de productos
+ * @param {Blob} imagenBlob - Blob de la imagen
+ * @param {string} nombreArchivo - Nombre del archivo
+ * @returns {Promise<{exito: boolean, metodo: string}>}
+ */
+export const compartirImagenGenerada = async (imagenBlob, nombreArchivo) => {
+  const file = new File([imagenBlob], nombreArchivo, { type: 'image/jpeg' });
+  
+  // Intentar Web Share API
+  if (soportaWebShare() && puedeCompartirArchivos([file])) {
+    try {
+      await navigator.share({ files: [file] });
+      return { exito: true, metodo: 'webshare' };
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        return { exito: false, metodo: 'cancelado' };
+      }
+      console.log('Web Share falló, usando fallback:', error);
+    }
+  }
+  
+  // Fallback: descargar imagen
+  const url = URL.createObjectURL(imagenBlob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nombreArchivo;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  
+  return { 
+    exito: true, 
+    metodo: 'descarga',
+    mensaje: 'Imagen descargada. Puedes compartirla manualmente en WhatsApp.'
+  };
+};
+
+// =====================================================
+// FUNCIÓN PRINCIPAL PARA PEDIDOS
+// =====================================================
+
+/**
+ * Envía confirmación de producto encontrado por WhatsApp
+ * Intenta compartir imágenes con Web Share API, si no, abre wa.me
+ * 
+ * @param {Object} options
+ * @param {Object} options.item - Item del pedido (pedido_items)
+ * @param {string} options.telefono - Teléfono del cliente
+ * @param {string[]} [options.imagenes] - URLs de las imágenes del producto encontrado
+ * @returns {Promise<{exito: boolean, metodo: string, mensaje?: string}>}
+ */
+export const enviarConfirmacionPedido = async ({ item, telefono, imagenes = [] }) => {
+  const mensajeTexto = generarMensajeConfirmacionPedido(item);
+  
+  // Si hay imágenes, intentar compartir con Web Share API
+  if (imagenes.length > 0 && soportaWebShare()) {
+    try {
+      // Convertir URLs a Files
+      const files = await urlsAFiles(imagenes, 'producto_encontrado');
+      
+      // Verificar si puede compartir archivos
+      if (files.length > 0 && puedeCompartirArchivos(files)) {
+        // Compartir las imágenes primero
+        const compartido = await compartirArchivos(files);
+        
+        if (compartido) {
+          // Después de compartir imágenes, abrir WhatsApp con el mensaje
+          setTimeout(() => {
+            compartirPorWhatsAppANumero(telefono, mensajeTexto);
+          }, 500);
+          
+          return { 
+            exito: true, 
+            metodo: 'webshare_completo',
+            mensaje: 'Imágenes compartidas. Se abrirá WhatsApp con el mensaje.'
+          };
+        } else {
+          // Usuario canceló al compartir imágenes
+          return { exito: false, metodo: 'cancelado' };
+        }
+      }
+    } catch (error) {
+      console.log('Web Share falló, usando fallback:', error);
+    }
+  }
+  
+  // Fallback: Solo abrir WhatsApp con el mensaje
+  // Las imágenes se enviarán manualmente
+  compartirPorWhatsAppANumero(telefono, mensajeTexto);
+  
+  return { 
+    exito: true, 
+    metodo: 'wa_me',
+    mensaje: imagenes.length > 0 
+      ? 'WhatsApp abierto. Envía las imágenes manualmente desde la galería.'
+      : 'WhatsApp abierto con el mensaje.'
+  };
+};
+
+// =====================================================
+// EXPORT DEFAULT
+// =====================================================
+
+export default {
+  // Configuración
+  CONFIG,
+  
+  // URLs
+  generarUrlLista,
+  generarUrlProducto,
+  
+  // Formateo
+  formatearPrecioCOP,
+  
+  // Mensajes
+  generarMensajeProducto,
+  generarMensajeLista,
+  generarMensajeConfirmacionPedido,
+  
+  // Validaciones
+  validarLongitudMensaje,
+  puedeCompartirseProducto,
+  puedeCompartirseLista,
+  
+  // Compartir básico
+  compartirPorWhatsApp,
+  compartirPorWhatsAppANumero,
+  compartirProducto,
+  compartirLista,
+  
+  // Web Share API
+  soportaWebShare,
+  puedeCompartirArchivos,
+  urlsAFiles,
+  compartirArchivos,
+  descargarImagenes,
+  compartirImagenGenerada,
+  
+  // Pedidos
+  enviarConfirmacionPedido
 };

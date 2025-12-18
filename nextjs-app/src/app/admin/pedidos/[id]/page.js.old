@@ -5,8 +5,6 @@ import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import AdminLayout from '@/components/AdminLayout'
-// Servicio de WhatsApp (solo para descargar imágenes)
-import { descargarImagenes } from '@/services/whatsappService'
 
 // =====================================================
 // CONSTANTES DE ESTADOS (ESPECIFICACIÓN EXACTA)
@@ -291,254 +289,33 @@ export default function DetallePedidoPage() {
   }
 
   // =====================================================
-  // GENERAR IMAGEN DE CONFIRMACIÓN CON CANVAS
-  // Combina todas las fotos en UNA SOLA imagen + texto
+  // MENSAJE DE WHATSAPP (PLANTILLA EXACTA)
   // =====================================================
 
-  const generarImagenConfirmacionPedido = async (item, imagenesUrls) => {
-    // Asegurar que imagenesUrls sea un array
-    const urls = Array.isArray(imagenesUrls) ? imagenesUrls : [imagenesUrls]
-    
-    return new Promise(async (resolve, reject) => {
-      try {
-        const canvas = document.createElement('canvas')
-        const ctx = canvas.getContext('2d')
-        
-        // Dimensiones
-        const anchoCanvas = 800
-        const altoBloque = 380 // Bloque de texto inferior
-        
-        // Calcular alto de la zona de imágenes según cantidad
-        const cantidadImagenes = urls.length
-        const altoImagen = cantidadImagenes === 1 ? 500 : 400 // Más bajo si hay 2 para que quepa todo
-        const anchoImagen = cantidadImagenes === 1 ? anchoCanvas : anchoCanvas / 2 // Dividir si hay 2
-        
-        const altoCanvas = altoImagen + altoBloque
-        
-        canvas.width = anchoCanvas
-        canvas.height = altoCanvas
-        
-        // Cargar todas las imágenes primero
-        const cargarImagen = (url) => {
-          return new Promise((resolveImg) => {
-            const img = new window.Image()
-            img.crossOrigin = 'anonymous'
-            
-            const timeout = setTimeout(() => {
-              console.log('Timeout cargando imagen')
-              resolveImg(null)
-            }, 5000)
-            
-            img.onload = () => {
-              clearTimeout(timeout)
-              resolveImg(img)
-            }
-            
-            img.onerror = () => {
-              clearTimeout(timeout)
-              console.log('Error cargando imagen')
-              resolveImg(null)
-            }
-            
-            img.src = url
-          })
-        }
-        
-        // Cargar todas las imágenes en paralelo
-        const imagenesPromises = urls.map(url => cargarImagen(url))
-        const imagenesCargadas = await Promise.all(imagenesPromises)
-        
-        // Función para dibujar una imagen en una posición específica
-        const dibujarImagenEnPosicion = (img, x, y, ancho, alto) => {
-          if (!img) {
-            // Placeholder si no hay imagen
-            ctx.fillStyle = '#D1D5DB'
-            ctx.fillRect(x, y, ancho, alto)
-            ctx.fillStyle = '#9CA3AF'
-            ctx.font = '80px Arial'
-            ctx.textAlign = 'center'
-            ctx.fillText('📦', x + ancho / 2, y + alto / 2 + 25)
-            ctx.textAlign = 'left'
-            return
-          }
-          
-          const imgRatio = img.width / img.height
-          const canvasRatio = ancho / alto
-          
-          let drawWidth, drawHeight, drawX, drawY
-          
-          if (imgRatio > canvasRatio) {
-            drawHeight = alto
-            drawWidth = img.width * (alto / img.height)
-            drawX = x + (ancho - drawWidth) / 2
-            drawY = y
-          } else {
-            drawWidth = ancho
-            drawHeight = img.height * (ancho / img.width)
-            drawX = x
-            drawY = y + (alto - drawHeight) / 2
-          }
-          
-          // Clip para que no se salga del área
-          ctx.save()
-          ctx.beginPath()
-          ctx.rect(x, y, ancho, alto)
-          ctx.clip()
-          ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight)
-          ctx.restore()
-        }
-        
-        // Fondo blanco total
-        ctx.fillStyle = '#FFFFFF'
-        ctx.fillRect(0, 0, anchoCanvas, altoCanvas)
-        
-        // Fondo gris claro para la zona de imágenes
-        ctx.fillStyle = '#F3F4F6'
-        ctx.fillRect(0, 0, anchoCanvas, altoImagen)
-        
-        // Dibujar las imágenes según cantidad
-        if (cantidadImagenes === 1) {
-          // Una sola imagen centrada
-          dibujarImagenEnPosicion(imagenesCargadas[0], 0, 0, anchoCanvas, altoImagen)
-        } else {
-          // Dos imágenes lado a lado
-          dibujarImagenEnPosicion(imagenesCargadas[0], 0, 0, anchoImagen, altoImagen)
-          dibujarImagenEnPosicion(imagenesCargadas[1], anchoImagen, 0, anchoImagen, altoImagen)
-          
-          // Línea divisoria entre imágenes
-          ctx.strokeStyle = '#FFFFFF'
-          ctx.lineWidth = 3
-          ctx.beginPath()
-          ctx.moveTo(anchoImagen, 0)
-          ctx.lineTo(anchoImagen, altoImagen)
-          ctx.stroke()
-        }
-        
-        // Badge "ENCONTRADO" en la imagen
-        ctx.fillStyle = '#16A34A' // Verde
-        ctx.beginPath()
-        ctx.roundRect(20, 20, 200, 50, 8)
-        ctx.fill()
-        ctx.fillStyle = '#FFFFFF'
-        ctx.font = 'bold 22px Arial, sans-serif'
-        ctx.textAlign = 'center'
-        ctx.fillText('ENCONTRADO', 120, 52)
-        ctx.textAlign = 'left'
-        
-        // Badge de cantidad de fotos (si hay más de 1)
-        if (cantidadImagenes > 1) {
-          ctx.fillStyle = '#3B82F6' // Azul
-          ctx.beginPath()
-          ctx.roundRect(anchoCanvas - 100, 20, 80, 40, 8)
-          ctx.fill()
-          ctx.fillStyle = '#FFFFFF'
-          ctx.font = 'bold 18px Arial, sans-serif'
-          ctx.textAlign = 'center'
-          ctx.fillText(`${cantidadImagenes} fotos`, anchoCanvas - 60, 47)
-          ctx.textAlign = 'left'
-        }
-        
-        // Bloque inferior con gradiente azul
-        const gradient = ctx.createLinearGradient(0, altoImagen, 0, altoCanvas)
-        gradient.addColorStop(0, '#0f172a')
-        gradient.addColorStop(1, '#1e3a8a')
-        ctx.fillStyle = gradient
-        ctx.fillRect(0, altoImagen, anchoCanvas, altoBloque)
-        
-        // Contenido del bloque
-        const padding = 30
-        let yPos = altoImagen + 35
-        
-        // Encabezado
-        ctx.fillStyle = '#FFFFFF'
-        ctx.font = 'bold 22px Arial, sans-serif'
-        ctx.fillText('Chic Import USA', padding, yPos)
-        
-        // Línea separadora
-        yPos += 20
-        ctx.strokeStyle = 'rgba(255,255,255,0.3)'
-        ctx.lineWidth = 1
-        ctx.beginPath()
-        ctx.moveTo(padding, yPos)
-        ctx.lineTo(anchoCanvas - padding, yPos)
-        ctx.stroke()
-        
-        // Título del producto
-        yPos += 35
-        ctx.fillStyle = '#FFFFFF'
-        ctx.font = 'bold 24px Arial, sans-serif'
-        const tituloOriginal = item.titulo_articulo || 'Producto'
-        const titulo = tituloOriginal.length > 40 
-          ? tituloOriginal.substring(0, 40) + '...' 
-          : tituloOriginal
-        ctx.fillText('Producto: ' + titulo, padding, yPos)
-        
-        // Información del producto
-        yPos += 38
-        ctx.fillStyle = 'rgba(255,255,255,0.9)'
-        ctx.font = '20px Arial, sans-serif'
-        ctx.fillText('Sexo: ' + (item.genero || 'No especificado'), padding, yPos)
-        
-        yPos += 30
-        ctx.fillText('Talla: ' + (item.talla || 'No especificada'), padding, yPos)
-        
-        // Detalles (si hay)
-        if (item.descripcion_detallada) {
-          yPos += 30
-          const detalles = item.descripcion_detallada.length > 45 
-            ? item.descripcion_detallada.substring(0, 45) + '...' 
-            : item.descripcion_detallada
-          ctx.fillText('Detalles: ' + detalles, padding, yPos)
-        }
-        
-        // Línea separadora
-        yPos += 28
-        ctx.strokeStyle = 'rgba(255,255,255,0.3)'
-        ctx.beginPath()
-        ctx.moveTo(padding, yPos)
-        ctx.lineTo(anchoCanvas - padding, yPos)
-        ctx.stroke()
-        
-        // Mensaje de confirmación
-        yPos += 32
-        ctx.fillStyle = '#FEF08A' // Amarillo
-        ctx.font = 'bold 20px Arial, sans-serif'
-        ctx.fillText('Por favor confirma respondiendo:', padding, yPos)
-        
-        yPos += 40
-        ctx.fillStyle = '#4ADE80' // Verde claro
-        ctx.font = 'bold 26px Arial, sans-serif'
-        ctx.fillText('CONFIRMAR', padding, yPos)
-        
-        ctx.fillStyle = '#F87171' // Rojo claro
-        ctx.fillText('RECHAZAR', padding + 260, yPos)
-        
-        // Footer
-        ctx.fillStyle = 'rgba(255,255,255,0.8)'
-        ctx.font = 'italic 18px Arial, sans-serif'
-        ctx.textAlign = 'right'
-        ctx.fillText('Gracias por confiar en Chic Import USA', anchoCanvas - padding, altoCanvas - 25)
-        ctx.textAlign = 'left'
-        
-        // Convertir a blob
-        canvas.toBlob((blob) => {
-          if (blob) {
-            resolve(blob)
-          } else {
-            reject(new Error('No se pudo generar la imagen'))
-          }
-        }, 'image/jpeg', 0.92)
-        
-      } catch (error) {
-        console.error('Error generando imagen:', error)
-        reject(error)
-      }
-    })
+  const generarMensajeWhatsApp = (item) => {
+    // PLANTILLA OFICIAL - NO MODIFICAR
+    const mensaje = `Hola 👋
+
+Hemos encontrado el producto que solicitaste en Chic Import USA 🇺🇸✨
+
+🛍️ Producto: ${item.titulo_articulo}
+👤 Sexo: ${item.genero || 'No especificado'}
+📏 Talla: ${item.talla || 'No especificada'}
+📝 Detalles: ${item.descripcion_detallada || 'Sin observaciones'}
+
+📸 Te enviamos la imagen del producto encontrado para que la revises.
+
+Por favor confírmanos respondiendo a este mensaje:
+
+✅ *CONFIRMAR*  
+❌ *RECHAZAR*
+
+Tan pronto confirmes, procederemos con la compra y el proceso de envío 📦✈️
+
+Gracias por confiar en Chic Import USA 💙`
+
+    return mensaje
   }
-
-  // =====================================================
-  // ENVÍO DE WHATSAPP (USA SERVICIO CENTRALIZADO)
-  // =====================================================
 
   const enviarWhatsApp = async (item) => {
     if (!pedido?.cliente?.telefono) {
@@ -546,94 +323,28 @@ export default function DetallePedidoPage() {
       return
     }
 
-    // Verificar que tenga imágenes
-    if (!item.imagenes_encontrado || item.imagenes_encontrado.length === 0) {
-      alert('No hay imágenes del producto encontrado para compartir')
-      return
-    }
+    const mensaje = generarMensajeWhatsApp(item)
+    const telefono = pedido.cliente.telefono.replace(/[^0-9]/g, '')
+    const urlWhatsApp = `https://wa.me/${telefono}?text=${encodeURIComponent(mensaje)}`
 
-    setActionLoading(true)
-    
+    // Registrar que el mensaje fue enviado
     try {
-      // Generar UNA SOLA imagen con todas las fotos combinadas + texto
-      const imagenBlob = await generarImagenConfirmacionPedido(
-        item, 
-        item.imagenes_encontrado // Pasar todas las URLs
-      )
-      
-      const nombreArchivo = `confirmacion_${item.titulo_articulo.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`
-      const file = new File([imagenBlob], nombreArchivo, { type: 'image/jpeg' })
-      
-      // Intentar compartir con Web Share API
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file] })
-        
-        // Registrar que el mensaje fue enviado
-        await supabase
-          .from('pedido_items')
-          .update({
-            whatsapp_enviado: true,
-            fecha_whatsapp_enviado: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', item.id)
+      await supabase
+        .from('pedido_items')
+        .update({
+          whatsapp_enviado: true,
+          fecha_whatsapp_enviado: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', item.id)
 
-        await cargarItems()
-      } else {
-        // Fallback: descargar imagen
-        const url = URL.createObjectURL(imagenBlob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = nombreArchivo
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        URL.revokeObjectURL(url)
-        
-        alert('Imagen descargada. Puedes compartirla manualmente en WhatsApp.')
-        
-        // Registrar que el mensaje fue enviado
-        await supabase
-          .from('pedido_items')
-          .update({
-            whatsapp_enviado: true,
-            fecha_whatsapp_enviado: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', item.id)
-
-        await cargarItems()
-      }
+      await cargarItems()
     } catch (error) {
-      console.log('Error compartiendo:', error)
-      // Si el usuario cancela, no mostrar error
-      if (error.name !== 'AbortError') {
-        alert('Error al generar imagen: ' + error.message)
-      }
-    } finally {
-      setActionLoading(false)
-    }
-  }
-
-  // Función auxiliar para descargar imágenes manualmente (las originales sin canvas)
-  const handleDescargarImagenes = async (item) => {
-    if (!item.imagenes_encontrado || item.imagenes_encontrado.length === 0) {
-      alert('No hay imágenes para descargar')
-      return
+      console.error('Error registrando envío WhatsApp:', error)
     }
 
-    setActionLoading(true)
-    try {
-      await descargarImagenes(
-        item.imagenes_encontrado, 
-        `${item.titulo_articulo.replace(/[^a-zA-Z0-9]/g, '_')}`
-      )
-      alert('✅ Imágenes descargadas')
-    } catch (error) {
-      alert('Error al descargar imágenes: ' + error.message)
-    } finally {
-      setActionLoading(false)
-    }
+    // Abrir WhatsApp
+    window.open(urlWhatsApp, '_blank')
   }
 
   // =====================================================
@@ -1148,22 +859,10 @@ export default function DetallePedidoPage() {
                                   </button>
                                   <button
                                     onClick={() => enviarWhatsApp(item)}
-                                    disabled={actionLoading}
-                                    className="text-xs px-3 py-1.5 rounded-full bg-green-100 text-green-800 hover:bg-green-200 transition-colors disabled:opacity-50"
+                                    className="text-xs px-3 py-1.5 rounded-full bg-green-100 text-green-800 hover:bg-green-200 transition-colors"
                                   >
-                                    📱 Compartir WhatsApp
+                                    📱 Enviar WhatsApp
                                   </button>
-                                  {/* Botón para descargar imágenes originales */}
-                                  {item.imagenes_encontrado?.length > 0 && (
-                                    <button
-                                      onClick={() => handleDescargarImagenes(item)}
-                                      disabled={actionLoading}
-                                      className="text-xs px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors disabled:opacity-50"
-                                      title="Descargar imágenes originales"
-                                    >
-                                      📥 Fotos originales
-                                    </button>
-                                  )}
                                   <button
                                     onClick={() => confirmarItem(item)}
                                     className="text-xs px-3 py-1.5 rounded-full bg-purple-100 text-purple-800 hover:bg-purple-200 transition-colors"
