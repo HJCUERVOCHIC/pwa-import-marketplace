@@ -348,12 +348,14 @@ export default function DetallePedidoPage() {
         const imagenesPromises = urls.map(url => cargarImagen(url))
         const imagenesCargadas = await Promise.all(imagenesPromises)
         
-        // Función para dibujar una imagen en una posición específica
+        // Función para dibujar una imagen COMPLETA en una posición (sin recortar)
         const dibujarImagenEnPosicion = (img, x, y, ancho, alto) => {
+          // Fondo gris para el área
+          ctx.fillStyle = '#F3F4F6'
+          ctx.fillRect(x, y, ancho, alto)
+          
           if (!img) {
             // Placeholder si no hay imagen
-            ctx.fillStyle = '#D1D5DB'
-            ctx.fillRect(x, y, ancho, alto)
             ctx.fillStyle = '#9CA3AF'
             ctx.font = '80px Arial'
             ctx.textAlign = 'center'
@@ -362,30 +364,28 @@ export default function DetallePedidoPage() {
             return
           }
           
+          // Método CONTAIN: mostrar imagen completa sin recortar
           const imgRatio = img.width / img.height
-          const canvasRatio = ancho / alto
+          const areaRatio = ancho / alto
           
           let drawWidth, drawHeight, drawX, drawY
           
-          if (imgRatio > canvasRatio) {
-            drawHeight = alto
-            drawWidth = img.width * (alto / img.height)
-            drawX = x + (ancho - drawWidth) / 2
-            drawY = y
-          } else {
+          if (imgRatio > areaRatio) {
+            // Imagen más ancha que el área - ajustar por ancho
             drawWidth = ancho
-            drawHeight = img.height * (ancho / img.width)
+            drawHeight = ancho / imgRatio
             drawX = x
             drawY = y + (alto - drawHeight) / 2
+          } else {
+            // Imagen más alta que el área - ajustar por alto
+            drawHeight = alto
+            drawWidth = alto * imgRatio
+            drawX = x + (ancho - drawWidth) / 2
+            drawY = y
           }
           
-          // Clip para que no se salga del área
-          ctx.save()
-          ctx.beginPath()
-          ctx.rect(x, y, ancho, alto)
-          ctx.clip()
+          // Dibujar imagen completa (sin recorte)
           ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight)
-          ctx.restore()
         }
         
         // Fondo blanco total
@@ -552,6 +552,9 @@ export default function DetallePedidoPage() {
       return
     }
 
+    // Limpiar número de teléfono (solo dígitos)
+    const telefonoLimpio = pedido.cliente.telefono.replace(/\D/g, '')
+
     setActionLoading(true)
     
     try {
@@ -579,8 +582,13 @@ export default function DetallePedidoPage() {
           .eq('id', item.id)
 
         await cargarItems()
+        
+        // Abrir WhatsApp con el número del cliente después de compartir
+        setTimeout(() => {
+          window.open(`https://wa.me/${telefonoLimpio}`, '_blank')
+        }, 500)
       } else {
-        // Fallback: descargar imagen
+        // Fallback: descargar imagen y abrir WhatsApp
         const url = URL.createObjectURL(imagenBlob)
         const a = document.createElement('a')
         a.href = url
@@ -589,8 +597,6 @@ export default function DetallePedidoPage() {
         a.click()
         document.body.removeChild(a)
         URL.revokeObjectURL(url)
-        
-        alert('Imagen descargada. Puedes compartirla manualmente en WhatsApp.')
         
         // Registrar que el mensaje fue enviado
         await supabase
@@ -603,6 +609,11 @@ export default function DetallePedidoPage() {
           .eq('id', item.id)
 
         await cargarItems()
+        
+        // Abrir WhatsApp con el número del cliente
+        setTimeout(() => {
+          window.open(`https://wa.me/${telefonoLimpio}`, '_blank')
+        }, 500)
       }
     } catch (error) {
       console.log('Error compartiendo:', error)

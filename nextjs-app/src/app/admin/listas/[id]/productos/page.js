@@ -891,159 +891,50 @@ export default function ProductosPage() {
         canvas.width = anchoCanvas
         canvas.height = altoCanvas
         
-        // Fondo blanco
-        ctx.fillStyle = '#FFFFFF'
-        ctx.fillRect(0, 0, anchoCanvas, altoCanvas)
-        
-        // Cargar imagen del producto
-        if (producto.imagenes?.[0]) {
-          const img = new window.Image()
-          img.crossOrigin = 'anonymous'
+        // Función para dibujar todo el contenido
+        const dibujarContenido = (imagenCargada = null) => {
+          // Fondo blanco
+          ctx.fillStyle = '#FFFFFF'
+          ctx.fillRect(0, 0, anchoCanvas, altoCanvas)
           
-          img.onload = () => {
-            // Calcular proporciones para centrar y cubrir
-            const imgRatio = img.width / img.height
+          // Fondo gris claro para la zona de imagen
+          ctx.fillStyle = '#F3F4F6'
+          ctx.fillRect(0, 0, anchoCanvas, altoImagen)
+          
+          // Dibujar imagen si está cargada
+          if (imagenCargada) {
+            // Método CONTAIN: mostrar imagen COMPLETA sin recortar
+            const imgRatio = imagenCargada.width / imagenCargada.height
             const canvasRatio = anchoCanvas / altoImagen
             
             let drawWidth, drawHeight, drawX, drawY
             
             if (imgRatio > canvasRatio) {
-              drawHeight = altoImagen
-              drawWidth = img.width * (altoImagen / img.height)
-              drawX = (anchoCanvas - drawWidth) / 2
-              drawY = 0
-            } else {
+              // Imagen más ancha que el área - ajustar por ancho
               drawWidth = anchoCanvas
-              drawHeight = img.height * (anchoCanvas / img.width)
+              drawHeight = anchoCanvas / imgRatio
               drawX = 0
               drawY = (altoImagen - drawHeight) / 2
-            }
-            
-            // Fondo gris claro para la zona de imagen
-            ctx.fillStyle = '#F3F4F6'
-            ctx.fillRect(0, 0, anchoCanvas, altoImagen)
-            
-            // Dibujar imagen
-            ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight)
-            
-            // Badge de descuento en la imagen (si aplica)
-            if (tieneDescuento) {
-              ctx.fillStyle = '#EF4444'
-              ctx.beginPath()
-              ctx.roundRect(20, 20, 120, 50, 8)
-              ctx.fill()
-              ctx.fillStyle = '#FFFFFF'
-              ctx.font = 'bold 28px Arial, sans-serif'
-              ctx.textAlign = 'center'
-              ctx.fillText(`-${descuentoPorcentaje}%`, 80, 55)
-              ctx.textAlign = 'left'
-            }
-            
-            // Bloque inferior con gradiente azul (estilo productos normales)
-            const gradient = ctx.createLinearGradient(0, altoImagen, 0, altoCanvas)
-            gradient.addColorStop(0, '#0f172a')
-            gradient.addColorStop(1, '#1e3a8a')
-            ctx.fillStyle = gradient
-            ctx.fillRect(0, altoImagen, anchoCanvas, altoBloque)
-            
-            // Contenido del bloque
-            const padding = 30
-            let yPos = altoImagen + 40
-            
-            // Título del producto
-            ctx.fillStyle = '#FFFFFF'
-            ctx.font = 'bold 28px Arial, sans-serif'
-            const titulo = producto.titulo.length > 40 
-              ? producto.titulo.substring(0, 40) + '...' 
-              : producto.titulo
-            ctx.fillText(titulo, padding, yPos)
-            
-            // Marca
-            if (producto.marca) {
-              yPos += 32
-              ctx.fillStyle = 'rgba(255,255,255,0.7)'
-              ctx.font = '20px Arial, sans-serif'
-              ctx.fillText(producto.marca, padding, yPos)
-            }
-            
-            // Descripción
-            if (producto.descripcion) {
-              yPos += 30
-              ctx.fillStyle = 'rgba(255,255,255,0.6)'
-              ctx.font = '16px Arial, sans-serif'
-              const descripcion = producto.descripcion.length > 60 
-                ? producto.descripcion.substring(0, 60) + '...' 
-                : producto.descripcion
-              ctx.fillText(descripcion, padding, yPos)
-            }
-            
-            // Sección de precios
-            yPos += 45
-            
-            if (tieneDescuento) {
-              // Precio tachado
-              ctx.fillStyle = 'rgba(255,255,255,0.5)'
-              ctx.font = '22px Arial, sans-serif'
-              const precioTachado = formatearCOP(valorSinDescuento)
-              ctx.fillText(precioTachado, padding, yPos)
-              
-              // Línea de tachado
-              const textWidth = ctx.measureText(precioTachado).width
-              ctx.strokeStyle = 'rgba(255,255,255,0.5)'
-              ctx.lineWidth = 2
-              ctx.beginPath()
-              ctx.moveTo(padding, yPos - 8)
-              ctx.lineTo(padding + textWidth, yPos - 8)
-              ctx.stroke()
-              
-              // Precio con descuento (grande, dorado)
-              yPos += 50
-              ctx.fillStyle = '#D4AF37'
-              ctx.font = 'bold 48px Arial, sans-serif'
-              ctx.fillText(formatearCOP(precioFinal), padding, yPos)
-              
-              // Texto de ahorro
-              yPos += 35
-              ctx.fillStyle = '#FEF08A'
-              ctx.font = 'bold 18px Arial, sans-serif'
-              ctx.fillText(`🔥 Ahorras ${formatearCOP(valorSinDescuento - precioFinal)}`, padding, yPos)
             } else {
-              // Solo precio (grande, dorado)
-              ctx.fillStyle = '#D4AF37'
-              ctx.font = 'bold 48px Arial, sans-serif'
-              ctx.fillText(formatearCOP(precioFinal), padding, yPos)
+              // Imagen más alta que el área - ajustar por alto
+              drawHeight = altoImagen
+              drawWidth = altoImagen * imgRatio
+              drawX = (anchoCanvas - drawWidth) / 2
+              drawY = 0
             }
             
-            // Logo de la tienda (derecha inferior)
-            ctx.fillStyle = 'rgba(255,255,255,0.7)'
-            ctx.font = 'italic 18px Arial, sans-serif'
-            ctx.textAlign = 'right'
-            ctx.fillText('Chic Import USA', anchoCanvas - padding, altoCanvas - 25)
+            // Dibujar imagen completa (sin recorte)
+            ctx.drawImage(imagenCargada, drawX, drawY, drawWidth, drawHeight)
+          } else {
+            // Placeholder si no hay imagen
+            ctx.fillStyle = '#D1D5DB'
+            ctx.font = '120px Arial'
+            ctx.textAlign = 'center'
+            ctx.fillText('📦', anchoCanvas / 2, altoImagen / 2 + 40)
             ctx.textAlign = 'left'
-            
-            // Convertir a blob
-            canvas.toBlob((blob) => {
-              resolve(blob)
-            }, 'image/jpeg', 0.92)
           }
           
-          img.onerror = () => {
-            reject(new Error('No se pudo cargar la imagen'))
-          }
-          
-          img.src = producto.imagenes[0]
-        } else {
-          // Sin imagen - placeholder con estilo similar
-          ctx.fillStyle = '#F3F4F6'
-          ctx.fillRect(0, 0, anchoCanvas, altoImagen)
-          
-          ctx.fillStyle = '#D1D5DB'
-          ctx.font = '120px Arial'
-          ctx.textAlign = 'center'
-          ctx.fillText('📦', anchoCanvas / 2, altoImagen / 2 + 40)
-          ctx.textAlign = 'left'
-          
-          // Badge de descuento (si aplica)
+          // Badge de descuento en la imagen (si aplica)
           if (tieneDescuento) {
             ctx.fillStyle = '#EF4444'
             ctx.beginPath()
@@ -1056,24 +947,26 @@ export default function ProductosPage() {
             ctx.textAlign = 'left'
           }
           
-          // Bloque inferior con gradiente azul
+          // Bloque inferior con gradiente azul (estilo productos normales)
           const gradient = ctx.createLinearGradient(0, altoImagen, 0, altoCanvas)
           gradient.addColorStop(0, '#0f172a')
           gradient.addColorStop(1, '#1e3a8a')
           ctx.fillStyle = gradient
           ctx.fillRect(0, altoImagen, anchoCanvas, altoBloque)
           
+          // Contenido del bloque
           const padding = 30
           let yPos = altoImagen + 40
           
-          // Título
+          // Título del producto
           ctx.fillStyle = '#FFFFFF'
           ctx.font = 'bold 28px Arial, sans-serif'
-          const titulo = producto.titulo.length > 40 
+          const titulo = (producto.titulo || 'Producto').length > 40 
             ? producto.titulo.substring(0, 40) + '...' 
             : producto.titulo
           ctx.fillText(titulo, padding, yPos)
           
+          // Marca
           if (producto.marca) {
             yPos += 32
             ctx.fillStyle = 'rgba(255,255,255,0.7)'
@@ -1081,6 +974,7 @@ export default function ProductosPage() {
             ctx.fillText(producto.marca, padding, yPos)
           }
           
+          // Descripción
           if (producto.descripcion) {
             yPos += 30
             ctx.fillStyle = 'rgba(255,255,255,0.6)'
@@ -1091,14 +985,17 @@ export default function ProductosPage() {
             ctx.fillText(descripcion, padding, yPos)
           }
           
+          // Sección de precios
           yPos += 45
           
           if (tieneDescuento) {
+            // Precio tachado
             ctx.fillStyle = 'rgba(255,255,255,0.5)'
             ctx.font = '22px Arial, sans-serif'
             const precioTachado = formatearCOP(valorSinDescuento)
             ctx.fillText(precioTachado, padding, yPos)
             
+            // Línea de tachado
             const textWidth = ctx.measureText(precioTachado).width
             ctx.strokeStyle = 'rgba(255,255,255,0.5)'
             ctx.lineWidth = 2
@@ -1107,38 +1004,77 @@ export default function ProductosPage() {
             ctx.lineTo(padding + textWidth, yPos - 8)
             ctx.stroke()
             
+            // Precio con descuento (grande, dorado)
             yPos += 50
             ctx.fillStyle = '#D4AF37'
             ctx.font = 'bold 48px Arial, sans-serif'
             ctx.fillText(formatearCOP(precioFinal), padding, yPos)
             
+            // Texto de ahorro
             yPos += 35
             ctx.fillStyle = '#FEF08A'
             ctx.font = 'bold 18px Arial, sans-serif'
-            ctx.fillText(`🔥 Ahorras ${formatearCOP(valorSinDescuento - precioFinal)}`, padding, yPos)
+            ctx.fillText(`Ahorras ${formatearCOP(valorSinDescuento - precioFinal)}`, padding, yPos)
           } else {
+            // Solo precio (grande, dorado)
             ctx.fillStyle = '#D4AF37'
             ctx.font = 'bold 48px Arial, sans-serif'
             ctx.fillText(formatearCOP(precioFinal), padding, yPos)
           }
           
+          // Logo de la tienda (derecha inferior)
           ctx.fillStyle = 'rgba(255,255,255,0.7)'
           ctx.font = 'italic 18px Arial, sans-serif'
           ctx.textAlign = 'right'
           ctx.fillText('Chic Import USA', anchoCanvas - padding, altoCanvas - 25)
           ctx.textAlign = 'left'
           
+          // Convertir a blob
           canvas.toBlob((blob) => {
-            resolve(blob)
+            if (blob) {
+              resolve(blob)
+            } else {
+              reject(new Error('No se pudo generar la imagen'))
+            }
           }, 'image/jpeg', 0.92)
         }
+        
+        // Intentar cargar imagen del producto
+        if (producto.imagenes?.[0]) {
+          const img = new window.Image()
+          img.crossOrigin = 'anonymous'
+          
+          // Timeout para evitar esperas infinitas
+          const timeout = setTimeout(() => {
+            console.log('Timeout cargando imagen, generando sin ella')
+            dibujarContenido(null)
+          }, 5000)
+          
+          img.onload = () => {
+            clearTimeout(timeout)
+            dibujarContenido(img)
+          }
+          
+          img.onerror = () => {
+            clearTimeout(timeout)
+            console.log('Error cargando imagen, generando sin ella')
+            dibujarContenido(null)
+          }
+          
+          img.src = producto.imagenes[0]
+        } else {
+          // Sin imagen - generar solo con texto
+          dibujarContenido(null)
+        }
+        
       } catch (error) {
+        console.error('Error generando imagen:', error)
         reject(error)
       }
     })
   }
 
-  // Función para compartir producto por WhatsApp - Imagen generada
+  // Función para compartir producto por WhatsApp - Imagen generada + abrir WhatsApp
   const handleCompartirWhatsApp = async (producto) => {
     try {
       setActionLoading(true)
@@ -1153,7 +1089,7 @@ export default function ProductosPage() {
           files: [file]
         })
       } else {
-        // Fallback: descargar imagen
+        // Fallback: descargar imagen y abrir WhatsApp
         const url = URL.createObjectURL(imagenBlob)
         const a = document.createElement('a')
         a.href = url
@@ -1163,7 +1099,17 @@ export default function ProductosPage() {
         document.body.removeChild(a)
         URL.revokeObjectURL(url)
         
-        alert('Imagen descargada. Puedes compartirla manualmente en WhatsApp.')
+        // Abrir WhatsApp después de descargar
+        const mensaje = encodeURIComponent(
+          `🛍️ *${producto.titulo}*\n` +
+          (producto.marca ? `Marca: ${producto.marca}\n` : '') +
+          `💰 Precio: ${formatearCOP(producto.precio_final_cop)}\n\n` +
+          `Chic Import USA 🇺🇸✨`
+        )
+        
+        setTimeout(() => {
+          window.open(`https://wa.me/?text=${mensaje}`, '_blank')
+        }, 500)
       }
     } catch (error) {
       console.log('Error compartiendo:', error)
