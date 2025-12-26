@@ -97,6 +97,7 @@ export default function AdminDashboard() {
   const [productosPorCategoria, setProductosPorCategoria] = useState([])
   const [totalProductos, setTotalProductos] = useState(0)
   const [totalPedidos, setTotalPedidos] = useState(0)
+  const [pedidosPendientes, setPedidosPendientes] = useState(0)
 
   // Colores para las categorías del donut (paleta midnight + dorado)
   const categoryColors = {
@@ -172,10 +173,27 @@ export default function AdminDashboard() {
           setProductosPorCategoria(categoriasArray)
           setTotalProductos(productosData.length)
         }
-
-        // 3. Contar pedidos (cuando exista la tabla)
-        setTotalPedidos(0) // Placeholder
       }
+
+      // 3. Contar pedidos totales
+      const { count: pedidosCount, error: pedidosError } = await supabase
+        .from('pedidos')
+        .select('*', { count: 'exact', head: true })
+
+      if (!pedidosError && pedidosCount !== null) {
+        setTotalPedidos(pedidosCount)
+      }
+
+      // 4. Contar pedidos pendientes
+      const { count: pendientesCount, error: pendientesError } = await supabase
+        .from('pedidos')
+        .select('*', { count: 'exact', head: true })
+        .eq('estado', 'pendiente')
+
+      if (!pendientesError && pendientesCount !== null) {
+        setPedidosPendientes(pendientesCount)
+      }
+
     } catch (error) {
       console.error('Error loading dashboard:', error)
     } finally {
@@ -196,121 +214,114 @@ export default function AdminDashboard() {
   if (loading) {
     return (
       <AdminLayout>
-        <div className="flex items-center justify-center py-16">
-          <div className="text-center">
-            <div className="w-12 h-12 border-4 border-blue-elegant border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-neutrals-graySoft">Cargando dashboard...</p>
+        <main className="p-4 md:p-6">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-elegant"></div>
           </div>
-        </div>
+        </main>
       </AdminLayout>
     )
   }
 
   return (
     <AdminLayout>
-      {/* Header */}
-      <header className="page-header py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="animate-fade-in-up">
-            <h1 className="font-display text-3xl font-semibold text-neutrals-black">
-              Dashboard
-            </h1>
-            {listaActiva && (
-              <p className="text-neutrals-graySoft mt-2 flex items-center gap-2">
-                Lista activa: 
-                <span className="font-medium text-neutrals-black">{listaActiva.titulo}</span>
-                <span className="text-xs px-2 py-0.5 bg-feedback-success/10 text-feedback-success rounded-full font-medium">
-                  {listaActiva.estado}
-                </span>
-              </p>
-            )}
+      <main className="p-4 md:p-6 max-w-6xl mx-auto">
+        {/* Header con gradiente */}
+        <div 
+          className="rounded-2xl p-6 md:p-8 mb-8 text-white relative overflow-hidden"
+          style={{
+            background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e40af 100%)',
+            boxShadow: '0 10px 40px rgba(15, 23, 42, 0.4)'
+          }}
+        >
+          {/* Patrón decorativo */}
+          <div 
+            className="absolute inset-0 opacity-10"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23D4AF37' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+            }}
+          />
+          
+          <div className="relative flex items-center gap-4 mb-4">
+            <LogoChic size="lg" />
+            <div>
+              <h1 className="font-display text-2xl md:text-3xl font-bold">
+                ¡Bienvenido!
+              </h1>
+              <p className="text-white/70">Panel de administración</p>
+            </div>
           </div>
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {listaActiva ? (
           <>
-            {/* Top Section: Info + Donut */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-              {/* Card Info de Lista con Midnight & Gold */}
+            {/* Grid principal */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              {/* Card Lista Activa */}
               <div 
-                className="rounded-2xl p-8 shadow-xl relative overflow-hidden"
+                className="rounded-2xl p-6 text-white relative overflow-hidden"
                 style={{
-                  background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #334155 100%)',
-                  boxShadow: '0 20px 60px rgba(15, 23, 42, 0.4), 0 0 40px rgba(212, 175, 55, 0.1)'
+                  background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)',
+                  boxShadow: '0 8px 30px rgba(15, 23, 42, 0.3)'
                 }}
               >
-                {/* Efecto de brillo dorado */}
-                <div 
-                  className="absolute top-0 right-0 w-64 h-64 opacity-10"
-                  style={{
-                    background: 'radial-gradient(circle, rgba(212,175,55,0.6) 0%, transparent 70%)',
-                    filter: 'blur(40px)'
-                  }}
-                />
-                
-                <div className="relative z-10">
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-3">
-                      <div 
-                        className="w-12 h-12 rounded-xl flex items-center justify-center"
-                        style={{
-                          background: 'linear-gradient(135deg, #D4AF37, #f4d03f)',
-                          boxShadow: '0 8px 20px rgba(212, 175, 55, 0.4)'
-                        }}
-                      >
-                        <span className="text-2xl">📋</span>
-                      </div>
-                      <div>
-                        <h3 className="font-display text-xl font-bold text-white">
-                          {listaActiva.titulo}
-                        </h3>
-                        <p className="text-white/60 text-sm">
-                          Creada {formatDate(listaActiva.created_at)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {listaActiva.descripcion && (
-                    <p className="text-white/80 mb-6 leading-relaxed">
-                      {listaActiva.descripcion}
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <span 
+                      className="px-3 py-1 rounded-full text-xs font-medium inline-block mb-2"
+                      style={{ 
+                        background: 'linear-gradient(135deg, #D4AF37, #f4d03f)',
+                        color: '#0f172a'
+                      }}
+                    >
+                      Lista Activa
+                    </span>
+                    <h3 className="font-display text-xl font-bold">{listaActiva.nombre}</h3>
+                    <p className="text-white/60 text-sm mt-1">
+                      Creada el {formatDate(listaActiva.created_at)}
                     </p>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <div 
-                        className="font-display text-3xl font-bold"
-                        style={{
-                          background: 'linear-gradient(135deg, #D4AF37, #f4d03f)',
-                          WebkitBackgroundClip: 'text',
-                          WebkitTextFillColor: 'transparent',
-                          backgroundClip: 'text'
-                        }}
-                      >
-                        ${listaActiva.trm_lista?.toLocaleString('es-CO')}
-                      </div>
-                      <div className="text-white/60 text-sm">TRM</div>
+                  </div>
+                  <div 
+                    className="w-12 h-12 rounded-xl flex items-center justify-center text-xl"
+                    style={{
+                      background: 'linear-gradient(135deg, #D4AF37, #f4d03f)',
+                      boxShadow: '0 8px 20px rgba(212, 175, 55, 0.4)'
+                    }}
+                  >
+                    ✨
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 mt-6">
+                  <div>
+                    <div 
+                      className="font-display text-3xl font-bold"
+                      style={{
+                        background: 'linear-gradient(135deg, #D4AF37, #f4d03f)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        backgroundClip: 'text'
+                      }}
+                    >
+                      ${listaActiva.trm_lista?.toLocaleString('es-CO')}
                     </div>
-                    <div>
-                      <div 
-                        className="font-display text-3xl font-bold"
-                        style={{
-                          background: 'linear-gradient(135deg, #D4AF37, #f4d03f)',
-                          WebkitBackgroundClip: 'text',
-                          WebkitTextFillColor: 'transparent',
-                          backgroundClip: 'text'
-                        }}
-                      >
-                        {listaActiva.tax_modo_lista === 'porcentaje' 
-                          ? `${listaActiva.tax_porcentaje_lista}%` 
-                          : `$${listaActiva.tax_usd_lista}`}
-                      </div>
-                      <div className="text-white/60 text-sm">TAX</div>
+                    <div className="text-white/60 text-sm">TRM</div>
+                  </div>
+                  <div>
+                    <div 
+                      className="font-display text-3xl font-bold"
+                      style={{
+                        background: 'linear-gradient(135deg, #D4AF37, #f4d03f)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        backgroundClip: 'text'
+                      }}
+                    >
+                      {listaActiva.tax_modo_lista === 'porcentaje' 
+                        ? `${listaActiva.tax_porcentaje_lista}%` 
+                        : `$${listaActiva.tax_usd_lista}`}
                     </div>
+                    <div className="text-white/60 text-sm">TAX</div>
                   </div>
                 </div>
               </div>
@@ -333,10 +344,13 @@ export default function AdminDashboard() {
 
             {/* Bottom Section: KPIs */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Pedidos */}
-              <div className="bg-white rounded-2xl p-6 shadow-lg flex items-center gap-5 hover:shadow-xl transition-shadow">
+              {/* Pedidos - Ahora es un Link clickeable */}
+              <Link 
+                href="/admin/pedidos"
+                className="bg-white rounded-2xl p-6 shadow-lg flex items-center gap-5 hover:shadow-xl transition-all group cursor-pointer"
+              >
                 <div 
-                  className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl"
+                  className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform"
                   style={{
                     background: 'linear-gradient(135deg, #0f172a, #1e3a8a)',
                     boxShadow: '0 8px 20px rgba(15, 23, 42, 0.3)'
@@ -344,13 +358,21 @@ export default function AdminDashboard() {
                 >
                   📦
                 </div>
-                <div>
+                <div className="flex-1">
                   <div className="font-display text-3xl font-bold text-neutrals-black">
                     {totalPedidos}
                   </div>
                   <div className="text-neutrals-graySoft">Pedidos recibidos</div>
+                  {pedidosPendientes > 0 && (
+                    <div className="text-sm text-amber-600 font-medium mt-1">
+                      {pedidosPendientes} pendiente{pedidosPendientes > 1 ? 's' : ''}
+                    </div>
+                  )}
                 </div>
-              </div>
+                <svg className="w-5 h-5 text-neutrals-graySoft group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
 
               {/* Valor Vendido - Próximamente */}
               <div 
@@ -384,7 +406,7 @@ export default function AdminDashboard() {
             {/* Acciones Rápidas */}
             <div className="mt-8">
               <h3 className="font-display text-xl text-neutrals-black mb-4">Acciones Rápidas</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Link 
                   href={`/admin/listas/${listaActiva.id}/productos`}
                   className="bg-white rounded-xl p-5 shadow-md hover:shadow-lg transition-all group flex items-center gap-4"
@@ -417,6 +439,26 @@ export default function AdminDashboard() {
                   <div>
                     <p className="font-medium text-neutrals-black">Gestionar Listas</p>
                     <p className="text-sm text-neutrals-graySoft">Ver todas las listas</p>
+                  </div>
+                  <svg className="w-5 h-5 text-neutrals-graySoft ml-auto group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+
+                {/* NUEVO: Enlace a Pedidos */}
+                <Link 
+                  href="/admin/pedidos"
+                  className="bg-white rounded-xl p-5 shadow-md hover:shadow-lg transition-all group flex items-center gap-4"
+                >
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center group-hover:bg-blue-elegant transition-colors"
+                       style={{ backgroundColor: '#dbeafe' }}>
+                    <svg className="w-6 h-6 group-hover:text-white transition-colors" style={{ color: '#1e40af' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-medium text-neutrals-black">Ver Pedidos</p>
+                    <p className="text-sm text-neutrals-graySoft">Gestionar pedidos</p>
                   </div>
                   <svg className="w-5 h-5 text-neutrals-graySoft ml-auto group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
