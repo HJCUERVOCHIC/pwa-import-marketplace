@@ -13,6 +13,9 @@ const ESTADOS_PAGO = {
   anulado: { label: 'Anulado', color: 'bg-red-100 text-red-800', icon: '✗' }
 }
 
+// Estados del pedido que permiten registrar pagos
+const ESTADOS_PEDIDO_PERMITEN_PAGO = ['confirmado', 'enviado', 'entregado']
+
 // =====================================================
 // UTILIDADES
 // =====================================================
@@ -187,7 +190,7 @@ const ModalRegistrarPago = ({ isOpen, onClose, pedido, onPagoRegistrado }) => {
           cliente_id: pedido.cliente_id,
           monto_cop: monto,
           fecha_pago: formData.fecha_pago,
-          metodo_pago: 'otro', // Valor por defecto ya que eliminamos la selección
+          metodo_pago: 'otro',
           referencia: formData.referencia || null,
           comprobante_url: comprobanteUrl,
           notas: formData.notas || null,
@@ -475,7 +478,10 @@ export default function GestionPagos({ pedido, onPedidoActualizado }) {
   const recargarPedido = async () => {
     const { data } = await supabase
       .from('pedidos')
-      .select('*')
+      .select(`
+        *,
+        cliente:clientes(*)
+      `)
       .eq('id', pedido.id)
       .single()
     
@@ -522,7 +528,7 @@ export default function GestionPagos({ pedido, onPedidoActualizado }) {
     }
   }
 
-  // Calcular valores - asegurar que sean números
+  // Calcular valores
   const totalVenta = parseFloat(pedido?.total_venta_cop) || 0
   const totalAbonado = parseFloat(pedido?.total_abonado_cop) || 0
   const saldoPendiente = parseFloat(pedido?.saldo_cop) || (totalVenta - totalAbonado)
@@ -530,207 +536,308 @@ export default function GestionPagos({ pedido, onPedidoActualizado }) {
     ? Math.round((totalAbonado / totalVenta) * 100) 
     : 0
 
+  // Verificar si el estado del pedido permite registrar pagos
+  const estadoPedido = pedido?.estado_pedido || ''
+  const puedeRegistrarPago = ESTADOS_PEDIDO_PERMITEN_PAGO.includes(estadoPedido)
+
+  // Contar pagos por estado
+  const pagosConfirmados = pagos.filter(p => p.estado === 'confirmado').length
+  const pagosPendientes = pagos.filter(p => p.estado === 'pendiente_validacion').length
+
   return (
-    <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-      {/* Header con resumen */}
-      <div className="p-6 border-b border-neutrals-grayBorder">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-display text-lg font-semibold text-neutrals-black flex items-center gap-2">
-            <span>💳</span> Pagos y Saldos
-          </h3>
-        </div>
-
-        {/* Botón Registrar Pago - Prominente */}
-        {saldoPendiente > 0 && (
-          <button
-            onClick={() => setShowModal(true)}
-            className="w-full btn-primary mb-4 flex items-center justify-center gap-2"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            Registrar Pago
-          </button>
-        )}
-
-        {/* Barra de progreso */}
-        <div className="mb-4">
-          <div className="flex justify-between text-sm mb-2">
-            <span className="text-neutrals-graySoft">Progreso de pago</span>
-            <span className="font-medium text-neutrals-black">{porcentajePagado}%</span>
-          </div>
-          <div className="h-3 bg-neutrals-grayBg rounded-full overflow-hidden">
-            <div 
-              className={`h-full rounded-full transition-all duration-500 ${
-                porcentajePagado >= 100 ? 'bg-green-500' : 'bg-blue-elegant'
-              }`}
-              style={{ width: `${Math.min(porcentajePagado, 100)}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Resumen de valores */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="text-center p-3 bg-neutrals-grayBg rounded-xl">
-            <div className="text-xs text-neutrals-graySoft mb-1">Total</div>
-            <div className="font-bold text-neutrals-black">{formatCurrency(totalVenta)}</div>
-          </div>
-          <div className="text-center p-3 bg-green-50 rounded-xl">
-            <div className="text-xs text-green-600 mb-1">Abonado</div>
-            <div className="font-bold text-green-700">{formatCurrency(totalAbonado)}</div>
-          </div>
-          <div className={`text-center p-3 rounded-xl ${saldoPendiente > 0 ? 'bg-amber-50' : 'bg-green-50'}`}>
-            <div className={`text-xs mb-1 ${saldoPendiente > 0 ? 'text-amber-600' : 'text-green-600'}`}>
-              Saldo
-            </div>
-            <div className={`font-bold ${saldoPendiente > 0 ? 'text-amber-700' : 'text-green-700'}`}>
-              {formatCurrency(saldoPendiente)}
-            </div>
-          </div>
-        </div>
-
-        {/* Estado de pago completo */}
-        {saldoPendiente <= 0 && (
-          <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-xl flex items-center gap-2">
-            <span className="text-green-600 text-xl">✓</span>
-            <span className="text-green-700 font-medium">Pedido pagado completamente</span>
-          </div>
-        )}
-
-        {/* Info de período (si existe) */}
-        {pedido?.periodo_venta && (
-          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-xl">
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-blue-600">📅</span>
-              <span className="text-blue-700">
-                Período de venta: <strong>{pedido.periodo_venta}</strong>
-              </span>
-            </div>
-          </div>
-        )}
+    <>
+      {/* ====================================================== */}
+      {/* SEPARADOR VISUAL */}
+      {/* ====================================================== */}
+      <div className="my-8 flex items-center gap-4">
+        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-neutrals-grayBorder to-transparent"></div>
+        <span className="text-neutrals-graySoft text-sm font-medium px-4">💳 Pagos y Saldos</span>
+        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-neutrals-grayBorder to-transparent"></div>
       </div>
 
-      {/* Lista de pagos */}
-      <div className="p-6">
-        <h4 className="font-medium text-neutrals-black mb-4">
-          Historial de pagos ({pagos.length})
-        </h4>
+      {/* ====================================================== */}
+      {/* GRID DE CARDS - Mismo layout que artículos */}
+      {/* ====================================================== */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* ====================================================== */}
+        {/* COLUMNA IZQUIERDA: Resumen de Pagos */}
+        {/* ====================================================== */}
+        <div className="lg:col-span-1 space-y-6">
+          
+          {/* Card: Estado de Pago */}
+          <div className="card-premium p-5">
+            <h3 className="font-semibold text-neutrals-black mb-4 flex items-center gap-2">
+              <span>💰</span> Estado de Pago
+            </h3>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-elegant"></div>
-          </div>
-        ) : pagos.length === 0 ? (
-          <div className="text-center py-8 text-neutrals-graySoft">
-            <span className="text-4xl mb-2 block">💸</span>
-            <p>No hay pagos registrados</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {pagos.map((pago) => (
-              <div 
-                key={pago.id}
-                className={`p-4 rounded-xl border transition-all ${
-                  pago.estado === 'anulado' 
-                    ? 'bg-red-50/50 border-red-200 opacity-60' 
-                    : pago.estado === 'pendiente_validacion'
-                    ? 'bg-yellow-50/50 border-yellow-200'
-                    : 'bg-neutrals-grayBg border-transparent'
-                }`}
+            {/* Barra de progreso */}
+            <div className="mb-4">
+              <div className="flex justify-between text-sm mb-2">
+                <span className="text-neutrals-graySoft">Progreso</span>
+                <span className={`font-bold ${porcentajePagado >= 100 ? 'text-green-600' : 'text-blue-elegant'}`}>
+                  {porcentajePagado}%
+                </span>
+              </div>
+              <div className="h-3 bg-neutrals-grayBg rounded-full overflow-hidden">
+                <div 
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    porcentajePagado >= 100 ? 'bg-green-500' : 'bg-blue-elegant'
+                  }`}
+                  style={{ width: `${Math.min(porcentajePagado, 100)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Valores */}
+            <div className="space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-neutrals-graySoft">Total venta</span>
+                <span className="font-semibold text-neutrals-black">{formatCurrency(totalVenta)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-neutrals-graySoft">Abonado</span>
+                <span className="font-semibold text-green-600">{formatCurrency(totalAbonado)}</span>
+              </div>
+              <div className="flex justify-between pt-3 border-t border-neutrals-grayBorder">
+                <span className="font-medium text-neutrals-black">Saldo pendiente</span>
+                <span className={`font-bold text-lg ${saldoPendiente > 0 ? 'text-amber-600' : 'text-green-600'}`}>
+                  {formatCurrency(saldoPendiente)}
+                </span>
+              </div>
+            </div>
+
+            {/* Estado completado */}
+            {saldoPendiente <= 0 && (
+              <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-xl flex items-center gap-2">
+                <span className="text-green-600 text-xl">✓</span>
+                <span className="text-green-700 font-medium text-sm">Pedido pagado completamente</span>
+              </div>
+            )}
+
+            {/* Botón Registrar Pago - Solo si hay saldo Y el estado lo permite */}
+            {saldoPendiente > 0 && puedeRegistrarPago && (
+              <button
+                onClick={() => setShowModal(true)}
+                className="w-full btn-primary mt-4 flex items-center justify-center gap-2"
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3">
-                    <span className="text-2xl">💵</span>
-                    <div>
-                      <div className="font-bold text-neutrals-black text-lg">
-                        {formatCurrency(pago.monto_cop)}
-                      </div>
-                      <div className="text-sm text-neutrals-graySoft">
-                        {formatDate(pago.fecha_pago)}
-                      </div>
-                      {pago.referencia && (
-                        <div className="text-xs text-neutrals-graySoft mt-1">
-                          Ref: {pago.referencia}
-                        </div>
-                      )}
-                      {pago.notas && (
-                        <div className="text-xs text-neutrals-graySoft mt-1 italic">
-                          {pago.notas}
-                        </div>
-                      )}
-                      {/* Enlace a comprobante si existe */}
-                      {pago.comprobante_url && (
-                        <a 
-                          href={pago.comprobante_url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-blue-elegant hover:underline mt-1"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                          </svg>
-                          Ver evidencia
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <EstadoBadge estado={pago.estado} />
-                    
-                    {/* Acciones según estado */}
-                    {pago.estado === 'pendiente_validacion' && (
-                      <button
-                        onClick={() => handleConfirmarPago(pago.id)}
-                        className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors"
-                        title="Confirmar pago"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </button>
-                    )}
-                    
-                    {pago.estado !== 'anulado' && (
-                      <button
-                        onClick={() => setShowConfirmAnular(pago.id)}
-                        className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
-                        title="Anular pago"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    )}
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Registrar Pago
+              </button>
+            )}
+
+            {/* Mensaje cuando no se puede registrar pago por estado */}
+            {saldoPendiente > 0 && !puedeRegistrarPago && (
+              <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                <div className="flex items-start gap-2">
+                  <span className="text-amber-600 text-lg">⚠️</span>
+                  <div>
+                    <p className="text-amber-800 font-medium text-sm">No se pueden registrar pagos</p>
+                    <p className="text-amber-700 text-xs mt-1">
+                      El pedido debe estar en estado <strong>Confirmado</strong>, <strong>Enviado</strong> o <strong>Entregado</strong> para registrar pagos.
+                    </p>
                   </div>
                 </div>
+              </div>
+            )}
+          </div>
 
-                {/* Confirmación de anular */}
-                {showConfirmAnular === pago.id && (
-                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-sm text-red-700 mb-3">
-                      ¿Anular este pago? El saldo del pedido se ajustará automáticamente.
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setShowConfirmAnular(null)}
-                        className="px-3 py-1 text-sm border border-neutrals-grayBorder rounded-lg hover:bg-white"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        onClick={() => handleAnularPago(pago.id)}
-                        className="px-3 py-1 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700"
-                      >
-                        Sí, anular
-                      </button>
-                    </div>
-                  </div>
+          {/* Card: Info adicional */}
+          {pedido?.periodo_venta && (
+            <div className="card-premium p-5">
+              <h3 className="font-semibold text-neutrals-black mb-3 flex items-center gap-2">
+                <span>📅</span> Período
+              </h3>
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-blue-700">
+                    Venta registrada en: <strong>{pedido.periodo_venta}</strong>
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Card: Estadísticas */}
+          {pagos.length > 0 && (
+            <div className="card-premium p-5">
+              <h3 className="font-semibold text-neutrals-black mb-3 flex items-center gap-2">
+                <span>📊</span> Resumen
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="text-center p-3 bg-green-50 rounded-xl">
+                  <div className="text-2xl font-bold text-green-700">{pagosConfirmados}</div>
+                  <div className="text-xs text-green-600">Confirmados</div>
+                </div>
+                <div className="text-center p-3 bg-yellow-50 rounded-xl">
+                  <div className="text-2xl font-bold text-yellow-700">{pagosPendientes}</div>
+                  <div className="text-xs text-yellow-600">Pendientes</div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ====================================================== */}
+        {/* COLUMNA DERECHA: Historial de Pagos */}
+        {/* ====================================================== */}
+        <div className="lg:col-span-2">
+          <div className="card-premium">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-neutrals-grayBorder">
+              <h3 className="font-semibold text-neutrals-black flex items-center gap-2">
+                <span>📜</span> Historial de Pagos ({pagos.length})
+              </h3>
+              {/* Leyenda de estados */}
+              <div className="flex items-center gap-2 text-xs">
+                {Object.entries(ESTADOS_PAGO).map(([key, { label, color }]) => (
+                  <span key={key} className={`px-2 py-0.5 rounded ${color}`}>
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Lista de pagos */}
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-elegant"></div>
+              </div>
+            ) : pagos.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-neutrals-grayBg rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-3xl">💸</span>
+                </div>
+                <p className="text-neutrals-graySoft mb-2">No hay pagos registrados</p>
+                {saldoPendiente > 0 && (
+                  <p className="text-sm text-neutrals-graySoft">
+                    Usa el botón <strong>"Registrar Pago"</strong> para agregar el primer abono
+                  </p>
                 )}
               </div>
-            ))}
+            ) : (
+              <div className="divide-y divide-neutrals-grayBorder">
+                {pagos.map((pago) => {
+                  const esAnulado = pago.estado === 'anulado'
+                  const esPendiente = pago.estado === 'pendiente_validacion'
+                  
+                  return (
+                    <div 
+                      key={pago.id}
+                      className={`p-4 transition-colors ${
+                        esAnulado 
+                          ? 'bg-red-50/50 opacity-60' 
+                          : esPendiente
+                          ? 'bg-yellow-50/50'
+                          : 'hover:bg-neutrals-grayBg/30'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            esAnulado 
+                              ? 'bg-red-100' 
+                              : esPendiente 
+                              ? 'bg-yellow-100'
+                              : 'bg-green-100'
+                          }`}>
+                            <span className="text-lg">💵</span>
+                          </div>
+                          <div>
+                            <div className={`font-bold text-lg ${esAnulado ? 'line-through text-neutrals-graySoft' : 'text-neutrals-black'}`}>
+                              {formatCurrency(pago.monto_cop)}
+                            </div>
+                            <div className="text-sm text-neutrals-graySoft">
+                              {formatDate(pago.fecha_pago)}
+                            </div>
+                            {pago.referencia && (
+                              <div className="text-xs text-neutrals-graySoft mt-1">
+                                Ref: {pago.referencia}
+                              </div>
+                            )}
+                            {pago.notas && (
+                              <div className="text-xs text-neutrals-graySoft mt-1 italic">
+                                📝 {pago.notas}
+                              </div>
+                            )}
+                            {/* Enlace a comprobante */}
+                            {pago.comprobante_url && (
+                              <a 
+                                href={pago.comprobante_url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs text-blue-elegant hover:underline mt-2"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                </svg>
+                                Ver evidencia
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <EstadoBadge estado={pago.estado} />
+                          
+                          {/* Acciones */}
+                          {esPendiente && (
+                            <button
+                              onClick={() => handleConfirmarPago(pago.id)}
+                              className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors"
+                              title="Confirmar pago"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </button>
+                          )}
+                          
+                          {!esAnulado && (
+                            <button
+                              onClick={() => setShowConfirmAnular(pago.id)}
+                              className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
+                              title="Anular pago"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Confirmación de anular */}
+                      {showConfirmAnular === pago.id && (
+                        <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                          <p className="text-sm text-red-700 mb-3">
+                            ¿Anular este pago? El saldo del pedido se ajustará automáticamente.
+                          </p>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setShowConfirmAnular(null)}
+                              className="px-3 py-1.5 text-sm border border-neutrals-grayBorder rounded-lg hover:bg-white"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              onClick={() => handleAnularPago(pago.id)}
+                              className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700"
+                            >
+                              Sí, anular
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       {/* Modal registrar pago */}
@@ -740,6 +847,6 @@ export default function GestionPagos({ pedido, onPedidoActualizado }) {
         pedido={pedido}
         onPagoRegistrado={handlePagoRegistrado}
       />
-    </div>
+    </>
   )
 }

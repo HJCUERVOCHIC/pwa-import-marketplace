@@ -41,7 +41,8 @@ const OPCIONES_SEXO = [
 ]
 
 // Estados manuales del pedido (solo estos se pueden cambiar manualmente)
-const ESTADOS_MANUALES_PEDIDO = ['confirmado', 'enviado', 'entregado']
+// confirmado es automático (cuando todos los items están confirmados)
+const ESTADOS_MANUALES_PEDIDO = ['enviado', 'entregado']
 
 export default function DetallePedidoPage() {
   const router = useRouter()
@@ -81,6 +82,11 @@ export default function DetallePedidoPage() {
   // Modal ver imágenes
   const [showModalImagenes, setShowModalImagenes] = useState(false)
   const [imagenesVer, setImagenesVer] = useState([])
+
+  // Modal rechazar pedido completo
+  const [showModalRechazarPedido, setShowModalRechazarPedido] = useState(false)
+  const [motivoRechazo, setMotivoRechazo] = useState('')
+  const [rechazandoPedido, setRechazandoPedido] = useState(false)
 
   useEffect(() => {
     if (pedidoId) {
@@ -268,22 +274,8 @@ export default function DetallePedidoPage() {
       setItemParaEncontrar(null)
       setImagenesEncontrado([])
 
-      // Mostrar opción de enviar WhatsApp
-      const enviarWA = window.confirm(
-        '✅ Producto marcado como ENCONTRADO.\n\n¿Deseas enviar el mensaje de confirmación por WhatsApp al cliente?'
-      )
-      if (enviarWA) {
-        // Recargar el item actualizado para enviar WhatsApp
-        const { data: itemActualizado } = await supabase
-          .from('pedido_items')
-          .select('*')
-          .eq('id', itemParaEncontrar.id)
-          .single()
-        
-        if (itemActualizado) {
-          enviarWhatsApp(itemActualizado)
-        }
-      }
+      // Mostrar mensaje de éxito (sin preguntar por WhatsApp para evitar error de user gesture)
+      alert('✅ Producto marcado como ENCONTRADO.\n\nUsa el botón "📱 Compartir WhatsApp" para enviar la confirmación al cliente.')
     } catch (error) {
       alert('Error: ' + error.message)
     } finally {
@@ -568,28 +560,22 @@ export default function DetallePedidoPage() {
       const nombreArchivo = `confirmacion_${item.titulo_articulo.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`
       const file = new File([imagenBlob], nombreArchivo, { type: 'image/jpeg' })
       
+      let compartidoExitosamente = false
+      
       // Intentar compartir con Web Share API
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file] })
-        
-        // Registrar que el mensaje fue enviado
-        await supabase
-          .from('pedido_items')
-          .update({
-            whatsapp_enviado: true,
-            fecha_whatsapp_enviado: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', item.id)
-
-        await cargarItems()
-        
-        // Abrir WhatsApp con el número del cliente después de compartir
-        setTimeout(() => {
-          window.open(`https://wa.me/${telefonoLimpio}`, '_blank')
-        }, 500)
-      } else {
-        // Fallback: descargar imagen y abrir WhatsApp
+        try {
+          await navigator.share({ files: [file] })
+          compartidoExitosamente = true
+        } catch (shareError) {
+          // Si el error es por user gesture o cancelación, usar fallback
+          console.log('Web Share falló, usando fallback:', shareError.message)
+          compartidoExitosamente = false
+        }
+      }
+      
+      // Si Web Share no funcionó, usar fallback de descarga
+      if (!compartidoExitosamente) {
         const url = URL.createObjectURL(imagenBlob)
         const a = document.createElement('a')
         a.href = url
@@ -599,29 +585,29 @@ export default function DetallePedidoPage() {
         document.body.removeChild(a)
         URL.revokeObjectURL(url)
         
-        // Registrar que el mensaje fue enviado
-        await supabase
-          .from('pedido_items')
-          .update({
-            whatsapp_enviado: true,
-            fecha_whatsapp_enviado: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', item.id)
+        alert('📥 Imagen descargada.\n\nAbre WhatsApp y envía la imagen manualmente al cliente.')
+      }
+      
+      // Registrar que el mensaje fue enviado
+      await supabase
+        .from('pedido_items')
+        .update({
+          whatsapp_enviado: true,
+          fecha_whatsapp_enviado: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', item.id)
 
-        await cargarItems()
-        
-        // Abrir WhatsApp con el número del cliente
-        setTimeout(() => {
-          window.open(`https://wa.me/${telefonoLimpio}`, '_blank')
-        }, 500)
-      }
+      await cargarItems()
+      
+      // Abrir WhatsApp con el número del cliente
+      setTimeout(() => {
+        window.open(`https://wa.me/${telefonoLimpio}`, '_blank')
+      }, 500)
+      
     } catch (error) {
-      console.log('Error compartiendo:', error)
-      // Si el usuario cancela, no mostrar error
-      if (error.name !== 'AbortError') {
-        alert('Error al generar imagen: ' + error.message)
-      }
+      console.error('Error en enviarWhatsApp:', error)
+      alert('Error al generar imagen: ' + error.message)
     } finally {
       setActionLoading(false)
     }
@@ -744,6 +730,107 @@ export default function DetallePedidoPage() {
   }
 
   // =====================================================
+  // RECHAZAR PEDIDO COMPLETO
+  // =====================================================
+
+  const validarPuedeRechazarPedido = () => {
+    // No se puede rechazar si ya está rechazado, enviado o entregado
+    if (['rechazado', 'enviado', 'entregado'].includes(pedido?.estado_pedido)) {
+      return { puede: false, razon: 'El pedido ya está en un estado final' }
+    }
+    return { puede: true, razon: '' }
+  }
+
+  const abrirModalRechazarPedido = async () => {
+    const validacion = validarPuedeRechazarPedido()
+    if (!validacion.puede) {
+      alert(validacion.razon)
+      return
+    }
+
+    // Verificar si tiene pagos
+    try {
+      const { data: pagos, error } = await supabase
+        .from('pedido_pagos')
+        .select('id')
+        .eq('pedido_id', pedidoId)
+        .neq('estado', 'anulado')
+        .limit(1)
+
+      if (error) throw error
+
+      if (pagos && pagos.length > 0) {
+        alert('⚠️ No se puede rechazar este pedido porque tiene pagos asociados.\n\nPrimero debe anular todos los pagos.')
+        return
+      }
+
+      setMotivoRechazo('')
+      setShowModalRechazarPedido(true)
+    } catch (error) {
+      alert('Error al verificar pagos: ' + error.message)
+    }
+  }
+
+  const confirmarRechazoPedido = async () => {
+    if (!motivoRechazo.trim()) {
+      alert('⚠️ Debes ingresar un motivo para el rechazo')
+      return
+    }
+
+    setRechazandoPedido(true)
+    try {
+      // Opción 1: Usar la función SQL (más segura)
+      const { error: rpcError } = await supabase
+        .rpc('rechazar_pedido_completo', {
+          p_pedido_id: pedidoId,
+          p_motivo: motivoRechazo.trim()
+        })
+
+      if (rpcError) {
+        // Si la función RPC no existe, hacerlo manualmente
+        if (rpcError.message.includes('does not exist')) {
+          // Cambiar todos los items a rechazado
+          const { error: itemsError } = await supabase
+            .from('pedido_items')
+            .update({
+              estado_item: 'rechazado',
+              fecha_estado_cambio: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('pedido_id', pedidoId)
+            .neq('estado_item', 'rechazado')
+
+          if (itemsError) throw itemsError
+
+          // Actualizar el pedido
+          const { error: pedidoError } = await supabase
+            .from('pedidos')
+            .update({
+              estado_pedido: 'rechazado',
+              motivo_rechazo: motivoRechazo.trim(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', pedidoId)
+
+          if (pedidoError) throw pedidoError
+        } else {
+          throw rpcError
+        }
+      }
+
+      await cargarItems()
+      await cargarPedido()
+      setShowModalRechazarPedido(false)
+      setMotivoRechazo('')
+      alert('✅ Pedido rechazado correctamente')
+    } catch (error) {
+      alert('Error al rechazar el pedido: ' + error.message)
+    } finally {
+      setRechazandoPedido(false)
+    }
+  }
+
+  // =====================================================
   // MODAL EDITAR PEDIDO (ESTADO MANUAL, FECHAS, NOTAS)
   // =====================================================
 
@@ -822,10 +909,9 @@ export default function DetallePedidoPage() {
   }
 
   // Calcular si el estado del pedido se puede editar manualmente
+  // Solo se puede cambiar manualmente cuando el pedido está en confirmado, enviado o entregado
   const puedeEditarEstadoPedido = () => {
-    // Solo permitir cambio manual a estados manuales cuando hay items confirmados
-    const itemsConfirmados = items.filter(i => i.estado_item === 'confirmado').length
-    return itemsConfirmados > 0 || ESTADOS_MANUALES_PEDIDO.includes(pedido?.estado_pedido)
+    return ['confirmado', 'enviado', 'entregado'].includes(pedido?.estado_pedido)
   }
 
   // =====================================================
@@ -894,15 +980,30 @@ export default function DetallePedidoPage() {
               </div>
             </div>
 
-            <button
-              onClick={abrirModalEditar}
-              className="btn-secondary flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-              Editar Pedido
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={abrirModalEditar}
+                className="btn-secondary flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Editar
+              </button>
+
+              {/* Botón Rechazar Pedido - Solo visible si no está en estado final */}
+              {!['rechazado', 'enviado', 'entregado'].includes(pedido.estado_pedido) && (
+                <button
+                  onClick={abrirModalRechazarPedido}
+                  className="btn-secondary flex items-center gap-2 border-red-300 text-red-600 hover:bg-red-50"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Rechazar
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -961,6 +1062,20 @@ export default function DetallePedidoPage() {
                 </div>
               </div>
             </div>
+
+            {/* Tarjeta Motivo de Rechazo - Solo si el pedido está rechazado */}
+            {pedido.estado_pedido === 'rechazado' && (
+              <div className="card-premium p-5 bg-red-50 border border-red-200">
+                <h3 className="font-semibold text-red-800 mb-3 flex items-center gap-2">
+                  <span>❌</span> Pedido Rechazado
+                </h3>
+                {pedido.motivo_rechazo ? (
+                  <p className="text-red-700 text-sm">{pedido.motivo_rechazo}</p>
+                ) : (
+                  <p className="text-red-600 text-sm italic">Sin motivo registrado</p>
+                )}
+              </div>
+            )}
 
             {/* Tarjeta Totales */}
             <div className="card-premium p-5">
@@ -1229,14 +1344,12 @@ export default function DetallePedidoPage() {
         {/* ====================================================== */}
         {/* SECCIÓN: Pagos y Saldos */}
         {/* ====================================================== */}
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-          <GestionPagos 
-            pedido={pedido} 
-            onPedidoActualizado={(pedidoActualizado) => {
-              setPedido(pedidoActualizado)
-            }}
-          />
-        </div>
+        <GestionPagos 
+          pedido={pedido} 
+          onPedidoActualizado={(pedidoActualizado) => {
+            setPedido(pedidoActualizado)
+          }}
+        />
       </main>
 
       {/* ====================================================== */}
@@ -1261,29 +1374,34 @@ export default function DetallePedidoPage() {
                   Estado del Pedido
                 </label>
                 {puedeEditarEstadoPedido() ? (
-                  <select
-                    value={editarPedido.estado_pedido}
-                    onChange={(e) => setEditarPedido(prev => ({ ...prev, estado_pedido: e.target.value }))}
-                    className="input-chic"
-                  >
-                    {/* Estados automáticos (solo lectura visual) */}
-                    <option value="solicitado">📋 Solicitado (automático)</option>
-                    <option value="en_gestion">⏳ En Gestión (automático)</option>
-                    <option value="rechazado">❌ Rechazado (automático)</option>
-                    {/* Estados manuales */}
-                    <option value="confirmado">✅ Confirmado</option>
-                    <option value="enviado">✈️ Enviado</option>
-                    <option value="entregado">📦 Entregado</option>
-                  </select>
+                  <>
+                    <select
+                      value={editarPedido.estado_pedido}
+                      onChange={(e) => setEditarPedido(prev => ({ ...prev, estado_pedido: e.target.value }))}
+                      className="input-chic"
+                    >
+                      {/* Solo estados manuales */}
+                      <option value="confirmado">✅ Confirmado</option>
+                      <option value="enviado">✈️ Enviado</option>
+                      <option value="entregado">📦 Entregado</option>
+                    </select>
+                    <p className="text-xs text-neutrals-graySoft mt-1">
+                      Puedes cambiar a: Enviado → Entregado
+                    </p>
+                  </>
                 ) : (
-                  <div className="input-chic bg-neutrals-grayBg cursor-not-allowed">
-                    {estadoInfo.icon} {estadoInfo.label}
-                    <span className="text-xs text-neutrals-graySoft ml-2">(automático según artículos)</span>
-                  </div>
+                  <>
+                    <div className="input-chic bg-neutrals-grayBg cursor-not-allowed flex items-center gap-2">
+                      <span>{estadoInfo.icon}</span>
+                      <span>{estadoInfo.label}</span>
+                      <span className="text-xs text-neutrals-graySoft ml-auto">(automático)</span>
+                    </div>
+                    <p className="text-xs text-neutrals-graySoft mt-1">
+                      El estado se actualiza automáticamente según los artículos del pedido.
+                      Podrás cambiar manualmente cuando todos los artículos estén confirmados.
+                    </p>
+                  </>
                 )}
-                <p className="text-xs text-neutrals-graySoft mt-1">
-                  Los estados solicitado, en_gestion y rechazado se actualizan automáticamente según los artículos.
-                </p>
               </div>
 
               {/* Fechas */}
@@ -1596,6 +1714,84 @@ export default function DetallePedidoPage() {
                   className="w-full rounded-lg"
                 />
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================== */}
+      {/* MODAL: Rechazar Pedido Completo */}
+      {/* ====================================================== */}
+      {showModalRechazarPedido && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="card-premium max-w-md w-full">
+            <div className="flex justify-between items-center p-5 border-b border-neutrals-grayBorder bg-red-50">
+              <div>
+                <h3 className="font-display text-lg font-semibold text-red-800">❌ Rechazar Pedido</h3>
+                <p className="text-sm text-red-600 mt-1">{pedido?.codigo_pedido}</p>
+              </div>
+              <button onClick={() => setShowModalRechazarPedido(false)}>
+                <svg className="w-6 h-6 text-neutrals-graySoft" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-5 space-y-5">
+              {/* Advertencia */}
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                <div className="flex items-start gap-3">
+                  <span className="text-amber-600 text-xl">⚠️</span>
+                  <div className="text-sm text-amber-800">
+                    <p className="font-medium mb-1">Esta acción:</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>Cambiará TODOS los productos a estado <strong>Rechazado</strong></li>
+                      <li>El pedido quedará como <strong>Rechazado</strong></li>
+                      <li>Los totales se ajustarán a $0</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* Motivo de rechazo */}
+              <div>
+                <label className="block text-sm font-medium text-neutrals-grayStrong mb-2">
+                  📝 Motivo del rechazo <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={motivoRechazo}
+                  onChange={(e) => setMotivoRechazo(e.target.value)}
+                  rows={3}
+                  placeholder="Explica por qué se rechaza el pedido..."
+                  className="input-chic resize-none"
+                  disabled={rechazandoPedido}
+                />
+                <p className="text-xs text-neutrals-graySoft mt-1">
+                  Este motivo quedará registrado en el historial del pedido.
+                </p>
+              </div>
+
+              {/* Botones */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowModalRechazarPedido(false)}
+                  disabled={rechazandoPedido}
+                  className="flex-1 btn-secondary"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmarRechazoPedido}
+                  disabled={rechazandoPedido || !motivoRechazo.trim()}
+                  className={`flex-1 ${
+                    motivoRechazo.trim() 
+                      ? 'bg-red-600 hover:bg-red-700 text-white rounded-xl px-4 py-3 font-medium transition-colors' 
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed rounded-xl px-4 py-3'
+                  }`}
+                >
+                  {rechazandoPedido ? 'Rechazando...' : 'Confirmar Rechazo'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

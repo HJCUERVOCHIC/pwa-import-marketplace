@@ -8,15 +8,16 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import AdminLayout from '@/components/AdminLayout'
 
-// Estados de pedido con colores
+// =====================================================
+// ESTADOS DEL PEDIDO (ESPECIFICACIÓN CORRECTA)
+// =====================================================
 const ESTADOS_PEDIDO = {
-  nuevo: { label: 'Nuevo', color: 'bg-blue-100 text-blue-800', icon: '🆕' },
+  solicitado: { label: 'Solicitado', color: 'bg-blue-100 text-blue-800', icon: '📋' },
   en_gestion: { label: 'En Gestión', color: 'bg-yellow-100 text-yellow-800', icon: '⏳' },
   confirmado: { label: 'Confirmado', color: 'bg-purple-100 text-purple-800', icon: '✅' },
-  en_compra: { label: 'En Compra', color: 'bg-orange-100 text-orange-800', icon: '🛒' },
-  en_transito: { label: 'En Tránsito', color: 'bg-cyan-100 text-cyan-800', icon: '✈️' },
-  entregado: { label: 'Entregado', color: 'bg-green-100 text-green-800', icon: '📦' },
-  cancelado: { label: 'Cancelado', color: 'bg-red-100 text-red-800', icon: '❌' }
+  rechazado: { label: 'Rechazado', color: 'bg-red-100 text-red-800', icon: '❌' },
+  enviado: { label: 'Enviado', color: 'bg-cyan-100 text-cyan-800', icon: '✈️' },
+  entregado: { label: 'Entregado', color: 'bg-green-100 text-green-800', icon: '📦' }
 }
 
 // Componente de loading
@@ -107,7 +108,7 @@ function PedidosContent() {
 
       // Búsqueda por código de pedido
       if (busqueda.trim()) {
-        query = query.ilike('codigo_pedido', `%${busqueda}%`)
+        query = query.ilike('codigo_pedido', '%' + busqueda + '%')
       }
 
       const { data, error, count } = await query
@@ -205,16 +206,6 @@ function PedidosContent() {
                 ))}
               </select>
 
-              {/* Botón Nuevo Pedido */}
-              <Link
-                href="/admin/pedidos/nuevo"
-                className="btn-primary flex items-center justify-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                <span>Nuevo Pedido</span>
-              </Link>
             </div>
           </div>
         </div>
@@ -242,11 +233,11 @@ function PedidosContent() {
             <p className="text-neutrals-graySoft mb-6">
               {busqueda || filtroEstado !== 'todos'
                 ? 'Intenta con otros filtros de búsqueda'
-                : 'Crea tu primer pedido para comenzar'}
+                : 'Para crear un pedido, agrega productos desde una lista'}
             </p>
             {!busqueda && filtroEstado === 'todos' && (
-              <Link href="/admin/pedidos/nuevo" className="btn-primary">
-                Crear Pedido
+              <Link href="/admin/listas" className="btn-primary">
+                Ir a Listas
               </Link>
             )}
           </div>
@@ -255,25 +246,26 @@ function PedidosContent() {
             {/* Grid de Pedidos */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {pedidos.map((pedido) => {
-                const estadoInfo = ESTADOS_PEDIDO[pedido.estado_pedido] || ESTADOS_PEDIDO.nuevo
+                const estadoInfo = ESTADOS_PEDIDO[pedido.estado_pedido] || ESTADOS_PEDIDO.solicitado
+                const esRechazado = pedido.estado_pedido === 'rechazado'
                 
                 return (
                   <Link
                     key={pedido.id}
-                    href={`/admin/pedidos/${pedido.id}`}
-                    className="card-premium p-5 hover:shadow-lg transition-shadow group"
+                    href={'/admin/pedidos/' + pedido.id}
+                    className={'card-premium p-5 hover:shadow-lg transition-shadow group ' + (esRechazado ? 'opacity-60 bg-red-50/30' : '')}
                   >
                     {/* Header del pedido */}
                     <div className="flex items-start justify-between mb-4">
                       <div>
-                        <p className="font-display font-bold text-lg text-neutrals-black group-hover:text-blue-elegant transition-colors">
-                          {pedido.codigo_pedido || `#${pedido.id.slice(0, 8)}`}
+                        <p className={'font-display font-bold text-lg group-hover:text-blue-elegant transition-colors ' + (esRechazado ? 'text-neutrals-graySoft line-through' : 'text-neutrals-black')}>
+                          {pedido.codigo_pedido || ('#' + pedido.id.slice(0, 8))}
                         </p>
                         <p className="text-sm text-neutrals-graySoft">
                           {formatearFecha(pedido.fecha_solicitud || pedido.created_at)}
                         </p>
                       </div>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${estadoInfo.color}`}>
+                      <span className={'px-3 py-1 rounded-full text-xs font-medium ' + estadoInfo.color}>
                         {estadoInfo.icon} {estadoInfo.label}
                       </span>
                     </div>
@@ -297,20 +289,20 @@ function PedidosContent() {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <p className="text-xs text-neutrals-graySoft">Items</p>
-                        <p className="font-semibold text-neutrals-black">
+                        <p className={'font-semibold ' + (esRechazado ? 'text-neutrals-graySoft' : 'text-neutrals-black')}>
                           {pedido.total_items || 0}
                         </p>
                       </div>
                       <div>
                         <p className="text-xs text-neutrals-graySoft">Total Venta</p>
-                        <p className="font-semibold text-neutrals-black">
+                        <p className={'font-semibold ' + (esRechazado ? 'text-neutrals-graySoft' : 'text-neutrals-black')}>
                           {formatearCOP(pedido.total_venta_cop)}
                         </p>
                       </div>
                     </div>
 
-                    {/* Ganancia */}
-                    {pedido.total_ganancia_cop > 0 && (
+                    {/* Ganancia - No mostrar si está rechazado */}
+                    {!esRechazado && pedido.total_ganancia_cop > 0 && (
                       <div className="mt-3 pt-3 border-t border-neutrals-grayBorder">
                         <div className="flex justify-between items-center">
                           <span className="text-xs text-neutrals-graySoft">Ganancia</span>
@@ -321,8 +313,20 @@ function PedidosContent() {
                       </div>
                     )}
 
+                    {/* Saldo pendiente */}
+                    {!esRechazado && pedido.saldo_cop > 0 && (
+                      <div className="mt-3 pt-3 border-t border-neutrals-grayBorder">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-neutrals-graySoft">Saldo pendiente</span>
+                          <span className="font-semibold text-amber-600">
+                            {formatearCOP(pedido.saldo_cop)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Fechas de envío/entrega */}
-                    {(pedido.fecha_probable_envio || pedido.fecha_entrega) && (
+                    {!esRechazado && (pedido.fecha_probable_envio || pedido.fecha_entrega) && (
                       <div className="mt-3 pt-3 border-t border-neutrals-grayBorder space-y-1">
                         {pedido.fecha_probable_envio && (
                           <div className="flex justify-between text-xs">
@@ -336,6 +340,15 @@ function PedidosContent() {
                             <span className="text-green-600 font-medium">{formatearFecha(pedido.fecha_entrega)}</span>
                           </div>
                         )}
+                      </div>
+                    )}
+
+                    {/* Motivo de rechazo */}
+                    {esRechazado && pedido.motivo_rechazo && (
+                      <div className="mt-3 pt-3 border-t border-red-200">
+                        <p className="text-xs text-red-600 italic line-clamp-2">
+                          📝 {pedido.motivo_rechazo}
+                        </p>
                       </div>
                     )}
                   </Link>
