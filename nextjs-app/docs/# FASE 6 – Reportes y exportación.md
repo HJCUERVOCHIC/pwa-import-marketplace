@@ -1,20 +1,26 @@
-# FASE 6 – Reportes y exportación
+# FASE 6 – Reportes y exportación por períodos
 
 ## Objetivo
-Permitir exportar información para análisis y contabilidad.
+Permitir análisis externo y soporte contable.
 
 ## Alcance
-- Exportación de datos.
-- Reportes descargables.
+- Exportación de información.
+- Reportes por períodos.
 
 ## Requerimientos funcionales
 - Exportar a CSV/Excel:
-  - pedidos filtrados
-  - cartera por cliente
-  - ventas por periodo
+  - pedidos por periodo_venta
+  - cartera por cliente y por mes
+  - ventas mensuales
+  - recaudo mensual
+- Filtros por:
+  - cliente
+  - periodo_venta
+  - rango de fechas
 
 ## Entregables
 - Funcionalidad de exportación.
+- Reportes descargables.
 
 ## Criterios de aceptación
-- Los datos pueden ser usados externamente sin reprocesos.
+- La información es consistente y reutilizable.

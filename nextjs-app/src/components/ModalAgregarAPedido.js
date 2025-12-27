@@ -16,7 +16,8 @@ import { supabase } from '@/lib/supabase'
 
 // Estados de pedido permitidos para agregar items
 // NOTA: 'solicitado' es el estado inicial cuando se crea un pedido con items
-const ESTADOS_PEDIDO_PERMITIDOS = ['solicitado', 'nuevo', 'en_gestion', 'confirmado']
+// IMPORTANTE: Una vez el pedido está 'confirmado', NO se pueden agregar más artículos
+const ESTADOS_PEDIDO_PERMITIDOS = ['solicitado', 'nuevo', 'en_gestion']
 
 export default function ModalAgregarAPedido({ 
   isOpen, 

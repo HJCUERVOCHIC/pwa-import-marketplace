@@ -74,6 +74,26 @@ export default function AdminNavbar() {
               >
                 Listas
               </Link>
+              <Link 
+                href="/admin/pedidos" 
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive('/admin/pedidos')
+                    ? 'bg-blue-elegant/10 text-blue-elegant' 
+                    : 'text-neutrals-graySoft hover:bg-neutrals-grayBg hover:text-neutrals-black'
+                }`}
+              >
+                Pedidos
+              </Link>
+              <Link 
+                href="/admin/cartera" 
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive('/admin/cartera')
+                    ? 'bg-blue-elegant/10 text-blue-elegant' 
+                    : 'text-neutrals-graySoft hover:bg-neutrals-grayBg hover:text-neutrals-black'
+                }`}
+              >
+                Cartera
+              </Link>
             </div>
             
             {/* Action Buttons */}
@@ -110,7 +130,7 @@ export default function AdminNavbar() {
         <div className="flex">
           <Link 
             href="/admin" 
-            className={`flex-1 py-3 text-center text-sm font-medium transition-colors ${
+            className={`flex-1 py-3 text-center text-xs font-medium transition-colors ${
               isActive('/admin') && pathname === '/admin'
                 ? 'text-blue-elegant border-b-2 border-blue-elegant' 
                 : 'text-neutrals-graySoft hover:text-neutrals-black'
@@ -120,13 +140,33 @@ export default function AdminNavbar() {
           </Link>
           <Link 
             href="/admin/listas" 
-            className={`flex-1 py-3 text-center text-sm font-medium transition-colors ${
+            className={`flex-1 py-3 text-center text-xs font-medium transition-colors ${
               isActive('/admin/listas')
                 ? 'text-blue-elegant border-b-2 border-blue-elegant' 
                 : 'text-neutrals-graySoft hover:text-neutrals-black'
             }`}
           >
             Listas
+          </Link>
+          <Link 
+            href="/admin/pedidos" 
+            className={`flex-1 py-3 text-center text-xs font-medium transition-colors ${
+              isActive('/admin/pedidos')
+                ? 'text-blue-elegant border-b-2 border-blue-elegant' 
+                : 'text-neutrals-graySoft hover:text-neutrals-black'
+            }`}
+          >
+            Pedidos
+          </Link>
+          <Link 
+            href="/admin/cartera" 
+            className={`flex-1 py-3 text-center text-xs font-medium transition-colors ${
+              isActive('/admin/cartera')
+                ? 'text-blue-elegant border-b-2 border-blue-elegant' 
+                : 'text-neutrals-graySoft hover:text-neutrals-black'
+            }`}
+          >
+            Cartera
           </Link>
         </div>
       </div>

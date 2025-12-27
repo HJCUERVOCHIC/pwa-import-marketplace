@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import AdminLayout from '@/components/AdminLayout'
+import GestionPagos from '@/components/GestionPagos'
 // Servicio de WhatsApp (solo para descargar imágenes)
 import { descargarImagenes } from '@/services/whatsappService'
 
@@ -1223,6 +1224,18 @@ export default function DetallePedidoPage() {
               )}
             </div>
           </div>
+        </div>
+
+        {/* ====================================================== */}
+        {/* SECCIÓN: Pagos y Saldos */}
+        {/* ====================================================== */}
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+          <GestionPagos 
+            pedido={pedido} 
+            onPedidoActualizado={(pedidoActualizado) => {
+              setPedido(pedidoActualizado)
+            }}
+          />
         </div>
       </main>
 
